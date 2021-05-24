@@ -103,8 +103,6 @@ fn parse_weather(response: String) -> Result<Vec<Weather>> {
         0,
     );
 
-    debug!("{:?}", now);
-
     let hours_of_interest = hours_of_interest(now, None, false);
 
     let mut weather = vec![Weather::try_from((now, &response["currently"]))?];
