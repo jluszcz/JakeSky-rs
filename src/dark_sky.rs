@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use async_std::{fs::OpenOptions, prelude::*};
 use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use log::{debug, info, trace};
@@ -9,6 +8,10 @@ use std::{
     convert::TryFrom,
     env,
     path::{Path, PathBuf},
+};
+use tokio::{
+    fs::{self, OpenOptions},
+    io::AsyncWriteExt,
 };
 
 #[derive(Debug)]
@@ -181,13 +184,7 @@ fn cache_path(latitude: f64, longitude: f64) -> PathBuf {
 async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>> {
     if use_cache && cache_path.exists() {
         debug!("Reading cache file: {:?}", cache_path);
-
-        let mut file = OpenOptions::new().read(true).open(cache_path).await?;
-
-        let mut buf = String::new();
-        file.read_to_string(&mut buf).await?;
-
-        Ok(Some(buf))
+        Ok(Some(fs::read_to_string(cache_path).await?))
     } else {
         Ok(None)
     }
@@ -204,7 +201,7 @@ async fn try_write_cache(use_cache: bool, cache_path: &Path, response: &str) -> 
             .open(cache_path)
             .await?;
 
-        file.write(response.as_bytes()).await?;
+        file.write_all(response.as_bytes()).await?;
     }
     Ok(())
 }
