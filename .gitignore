@@ -1,2 +1,4 @@
-/target
+*zip
+.terraform*
 /jakesky-env
+/target

@@ -75,7 +75,7 @@ fn setup_logger(verbose: bool) -> Result<()> {
         log::LevelFilter::Info
     };
 
-    fern::Dispatch::new()
+    let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{} [{}] [{}] {}",
@@ -87,7 +87,7 @@ fn setup_logger(verbose: bool) -> Result<()> {
         })
         .level(level)
         .chain(std::io::stdout())
-        .apply()?;
+        .apply();
 
     Ok(())
 }
