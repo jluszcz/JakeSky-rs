@@ -1,8 +1,12 @@
 use anyhow::Result;
 use clap::{App, Arg};
 use jakesky_rs::{alexa, dark_sky};
+use lambda_runtime::{handler_fn, Context};
 use log::debug;
-use std::env;
+use serde_json::{json, Value};
+use std::{env, error::Error};
+
+type LambdaError = Box<dyn Error + Send + Sync + 'static>;
 
 #[derive(Debug)]
 struct Args {
@@ -89,7 +93,13 @@ fn setup_logger(verbose: bool) -> Result<()> {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), LambdaError> {
+    let func = handler_fn(function);
+    lambda_runtime::run(func).await?;
+    Ok(())
+}
+
+async fn function(_: Value, _: Context) -> Result<Value, LambdaError> {
     let args = parse_args();
     setup_logger(args.verbose)?;
     debug!("{:?}", args);
@@ -102,7 +112,15 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let _forecast = alexa::forecast(weather)?;
+    let forecast = alexa::forecast(weather)?;
 
-    Ok(())
+    Ok(json!({
+        "version": "1.0",
+        "response": {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": forecast,
+            }
+        }
+    }))
 }
