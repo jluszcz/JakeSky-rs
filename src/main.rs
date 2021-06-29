@@ -125,15 +125,5 @@ async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
     )
     .await?;
 
-    let forecast = alexa::forecast(weather)?;
-
-    Ok(json!({
-        "version": "1.0",
-        "response": {
-            "outputSpeech": {
-                "type": "PlainText",
-                "text": forecast,
-            }
-        }
-    }))
+    Ok(alexa::forecast(weather)?)
 }

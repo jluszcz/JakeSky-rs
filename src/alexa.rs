@@ -3,8 +3,9 @@ use anyhow::Result;
 use chrono::{DateTime, Timelike};
 use chrono_tz::Tz;
 use log::info;
+use serde_json::{json, Value};
 
-pub fn forecast(weather: Vec<Weather>) -> Result<String> {
+pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
     let mut forecast = Vec::with_capacity(weather.len());
 
     forecast.push(format!(
@@ -27,7 +28,7 @@ pub fn forecast(weather: Vec<Weather>) -> Result<String> {
             .expect("A 'last' weather is guaranteed to exist");
 
         forecast.push(format!(
-            "And, at {} it will be {}.",
+            "And at {} it will be {}.",
             speakable_timestamp(&last_weather.timestamp),
             speakable_weather(&last_weather),
         ));
@@ -37,7 +38,15 @@ pub fn forecast(weather: Vec<Weather>) -> Result<String> {
 
     info!(r#"Forecast: "{}""#, forecast);
 
-    Ok(forecast)
+    Ok(json!({
+        "version": "1.0",
+        "response": {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": forecast,
+            }
+        }
+    }))
 }
 
 fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
