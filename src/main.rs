@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{App, Arg};
 use jakesky_rs::{alexa, dark_sky};
 use lambda_runtime::{handler_fn, Context};
-use log::debug;
+use log::{debug, info};
 use serde_json::{json, Value};
 use std::{env, error::Error};
 
@@ -99,10 +99,23 @@ async fn main() -> Result<(), LambdaError> {
     Ok(())
 }
 
-async fn function(_: Value, _: Context) -> Result<Value, LambdaError> {
+fn is_warmup_event(event: Value) -> bool {
+    "Scheduled Event"
+        == event
+            .get("detail-type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("no detail-type")
+}
+
+async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
     let args = parse_args();
     setup_logger(args.verbose)?;
     debug!("{:?}", args);
+
+    if is_warmup_event(event) {
+        info!("Warmup only, returning early");
+        return Ok(json!({}));
+    }
 
     let weather = dark_sky::get_weather_info(
         args.use_cache,
