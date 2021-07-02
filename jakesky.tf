@@ -15,10 +15,7 @@ variable "jakesky_latitude" {}
 
 variable "jakesky_longitude" {}
 
-variable "jakesky_filename" {
-  type    = string
-  default = "JakeSky.zip"
-}
+variable "code_bucket" {}
 
 variable "aws_region" {
   type    = string
@@ -80,16 +77,16 @@ resource "aws_iam_role_policy_attachment" "jakesky_role_attachment" {
 }
 
 resource "aws_lambda_function" "jakesky" {
-  filename         = var.jakesky_filename
-  function_name    = "jakesky"
-  role             = aws_iam_role.jakesky_role.arn
-  source_code_hash = filebase64sha256(var.jakesky_filename)
-  runtime          = "provided.al2"
-  handler          = "ignored"
-  publish          = "false"
-  description      = "Retrieve local weather from DarkSky for commutes and lunchtime"
-  timeout          = 5
-  memory_size      = 128
+  function_name = "jakesky"
+  s3_bucket     = var.code_bucket
+  s3_key        = "updater.zip"
+  role          = aws_iam_role.jakesky_role.arn
+  runtime       = "provided.al2"
+  handler       = "ignored"
+  publish       = "false"
+  description   = "Retrieve local weather from DarkSky for commutes and lunchtime"
+  timeout       = 5
+  memory_size   = 128
 
   kms_key_arn = aws_kms_key.lambda_default_key.arn
   environment {
