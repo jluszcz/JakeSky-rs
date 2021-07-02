@@ -6,6 +6,10 @@ edition = "2018"
 
 [[bin]]
 name = "bootstrap"
+path = "src/lambda.rs"
+
+[[bin]]
+name = "jakesky"
 path = "src/main.rs"
 
 [dependencies]

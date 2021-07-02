@@ -1,12 +1,8 @@
 use anyhow::Result;
 use clap::{App, Arg};
-use jakesky_rs::{alexa, dark_sky};
-use lambda_runtime::{handler_fn, Context};
-use log::{debug, info};
-use serde_json::{json, Value};
-use std::{env, error::Error};
-
-type LambdaError = Box<dyn Error + Send + Sync + 'static>;
+use jakesky_rs::{alexa, dark_sky, set_up_logger};
+use log::debug;
+use std::env;
 
 #[derive(Debug)]
 struct Args {
@@ -68,54 +64,11 @@ fn parse_args() -> Args {
     }
 }
 
-fn setup_logger(verbose: bool) -> Result<()> {
-    let level = if verbose {
-        log::LevelFilter::Debug
-    } else {
-        log::LevelFilter::Info
-    };
-
-    let _ = fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{} [{}] [{}] {}",
-                chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        .level(level)
-        .chain(std::io::stdout())
-        .apply();
-
-    Ok(())
-}
-
 #[tokio::main]
-async fn main() -> Result<(), LambdaError> {
-    let func = handler_fn(function);
-    lambda_runtime::run(func).await?;
-    Ok(())
-}
-
-fn is_warmup_event(event: Value) -> bool {
-    "Scheduled Event"
-        == event
-            .get("detail-type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("no detail-type")
-}
-
-async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
+async fn main() -> Result<()> {
     let args = parse_args();
-    setup_logger(args.verbose)?;
+    set_up_logger(args.verbose)?;
     debug!("{:?}", args);
-
-    if is_warmup_event(event) {
-        info!("Warmup only, returning early");
-        return Ok(json!({}));
-    }
 
     let weather = dark_sky::get_weather_info(
         args.use_cache,
@@ -125,5 +78,7 @@ async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
     )
     .await?;
 
-    Ok(alexa::forecast(weather)?)
+    alexa::forecast(weather)?;
+
+    Ok(())
 }
