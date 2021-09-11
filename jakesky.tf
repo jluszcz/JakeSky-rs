@@ -79,7 +79,7 @@ resource "aws_iam_role_policy_attachment" "jakesky_role_attachment" {
 resource "aws_lambda_function" "jakesky" {
   function_name = "jakesky"
   s3_bucket     = var.code_bucket
-  s3_key        = "updater.zip"
+  s3_key        = "jakesky.zip"
   role          = aws_iam_role.jakesky_role.arn
   runtime       = "provided.al2"
   handler       = "ignored"
