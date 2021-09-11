@@ -30,7 +30,7 @@ pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
         forecast.push(format!(
             "And at {} it will be {}.",
             speakable_timestamp(&last_weather.timestamp),
-            speakable_weather(&last_weather),
+            speakable_weather(last_weather),
         ));
     }
 
