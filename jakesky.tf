@@ -5,7 +5,7 @@ terraform {
 # Sourced from environment variables named TF_VAR_${VAR_NAME}
 variable "aws_acct_id" {}
 
-variable "jakesky_darksky_key" {}
+variable "jakesky_api_key" {}
 
 variable "jakesky_geocodio_key" {}
 
@@ -84,14 +84,14 @@ resource "aws_lambda_function" "jakesky" {
   runtime       = "provided.al2"
   handler       = "ignored"
   publish       = "false"
-  description   = "Retrieve local weather from DarkSky for commutes and lunchtime"
+  description   = "Retrieve local weather for commutes and lunchtime"
   timeout       = 5
   memory_size   = 128
 
   kms_key_arn = aws_kms_key.lambda_default_key.arn
   environment {
     variables = {
-      JAKESKY_DARKSKY_KEY  = var.jakesky_darksky_key
+      JAKESKY_API_KEY      = var.jakesky_api_key
       JAKESKY_GEOCODIO_KEY = var.jakesky_geocodio_key
       JAKESKY_LATITUDE     = var.jakesky_latitude
       JAKESKY_LONGITUDE    = var.jakesky_longitude

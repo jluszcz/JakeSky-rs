@@ -1,4 +1,5 @@
-use jakesky_rs::{alexa, dark_sky, set_up_logger};
+use jakesky_rs::weather::{self, WeatherProvider};
+use jakesky_rs::{alexa, set_up_logger};
 use lambda_runtime::{handler_fn, Context};
 use log::debug;
 use serde_json::{json, Value};
@@ -29,11 +30,18 @@ async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
         return Ok(json!({}));
     }
 
-    let dark_sky_api_key = env::var("JAKESKY_DARKSKY_KEY")?;
+    let api_key = env::var("JAKESKY_API_KEY")?;
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
 
-    let weather = dark_sky::get_weather_info(false, dark_sky_api_key, latitude, longitude).await?;
+    let weather = weather::get_weather_info(
+        &WeatherProvider::DarkSky,
+        false,
+        api_key,
+        latitude,
+        longitude,
+    )
+    .await?;
 
     Ok(alexa::forecast(weather)?)
 }
