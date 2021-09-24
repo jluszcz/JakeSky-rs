@@ -67,5 +67,9 @@ fn speakable_weather(weather: &Weather) -> String {
         weather.summary.as_str()
     };
 
-    format!("{:.0} and {}", weather.temperature, forecast)
+    format!(
+        "{:.0} and {}",
+        weather.apparent_temp.unwrap_or(weather.temp),
+        forecast
+    )
 }

@@ -18,7 +18,8 @@ use tokio::{
 pub struct Weather {
     pub timestamp: DateTime<Tz>,
     pub summary: String,
-    pub temperature: f64,
+    pub temp: f64,
+    pub apparent_temp: Option<f64>,
 }
 
 impl TryFrom<(DateTime<Tz>, &Value)> for Weather {
@@ -32,14 +33,17 @@ impl TryFrom<(DateTime<Tz>, &Value)> for Weather {
             .ok_or_else(|| anyhow!("Missing weather summary"))?
             .to_owned();
 
-        let temperature = dark_sky_data["temperature"]
+        let temp = dark_sky_data["temperature"]
             .as_f64()
             .ok_or_else(|| anyhow!("Missing temperature"))?;
+
+        let apparent_temp = dark_sky_data["apparentTemperature"].as_f64();
 
         Ok(Weather {
             timestamp,
             summary,
-            temperature,
+            temp,
+            apparent_temp,
         })
     }
 }
