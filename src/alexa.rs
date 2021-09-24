@@ -1,4 +1,4 @@
-use crate::dark_sky::Weather;
+use crate::weather::Weather;
 use anyhow::Result;
 use chrono::{DateTime, Timelike};
 use chrono_tz::Tz;

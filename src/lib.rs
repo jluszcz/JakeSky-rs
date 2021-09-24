@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::LevelFilter;
 
 pub mod alexa;
-pub mod dark_sky;
+pub mod weather;
 
 pub fn set_up_logger(verbose: bool) -> Result<()> {
     let level = if verbose {
