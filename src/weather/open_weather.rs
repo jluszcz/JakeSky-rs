@@ -1,6 +1,145 @@
-#[allow(dead_code)]
+use crate::weather::{self, Weather};
+use anyhow::{anyhow, Result};
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, TimeZone, Timelike, Utc};
+use chrono_tz::Tz;
+use log::{debug, info, trace};
+use reqwest::header::HeaderMap;
+use serde::Deserialize;
+use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
+
+#[derive(Deserialize, Debug)]
+struct Response {
+    timezone: String,
+    current: WeatherItem,
+    hourly: Vec<WeatherItem>,
+}
+
+#[derive(Deserialize, Debug)]
+struct WeatherItem {
+    #[serde(alias = "dt", with = "ts_seconds")]
+    timestamp: DateTime<Utc>,
+
+    weather: Vec<InnerWeather>,
+
+    temp: f64,
+
+    #[serde(alias = "feels_like", default)]
+    apparent_temp: Option<f64>,
+}
+
+#[derive(Deserialize, Debug)]
+struct InnerWeather {
+    main: String,
+}
+
+impl TryFrom<&(Tz, WeatherItem)> for Weather {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &(Tz, WeatherItem)) -> Result<Self, Self::Error> {
+        let (tz, weather) = value;
+
+        let timestamp = tz.from_utc_datetime(&weather.timestamp.naive_utc());
+
+        let summary = if weather.weather.len() != 1 {
+            return Err(anyhow!(
+                "Invalid number of weather items: {}",
+                weather.weather.len()
+            ));
+        } else {
+            let summary = &weather.weather[0].main;
+            let summary = if summary.eq_ignore_ascii_case("Clouds") {
+                "Cloudy"
+            } else {
+                summary
+            };
+
+            summary.to_string()
+        };
+
+        Ok(Self {
+            timestamp,
+            summary,
+            temp: weather.temp,
+            apparent_temp: weather.apparent_temp,
+        })
+    }
+}
+
+impl TryFrom<Response> for Vec<Weather> {
+    type Error = anyhow::Error;
+
+    fn try_from(response: Response) -> Result<Self, Self::Error> {
+        let timezone = Tz::from_str(&response.timezone)
+            .map_err(|_| anyhow!("Failed to parse timezone from {}", response.timezone))?;
+
+        let now = timezone.from_utc_datetime(&response.current.timestamp.naive_utc());
+
+        let hours_of_interest = weather::hours_of_interest(now, None, false);
+
+        let mut weather = vec![Weather::try_from(&(timezone, response.current))?];
+
+        for hourly_weather in response.hourly {
+            let hourly_weather = Weather::try_from(&(timezone, hourly_weather))?;
+
+            if hourly_weather.timestamp.date() > now.date() {
+                debug!("{:?} is no longer relevant", hourly_weather.timestamp);
+                break;
+            }
+
+            if hourly_weather.timestamp.hour() == now.hour() {
+                debug!("Skipping current hour: {:?}", hourly_weather.timestamp);
+                continue;
+            }
+
+            if hours_of_interest.contains(&hourly_weather.timestamp.hour()) {
+                info!("{:?}", hourly_weather);
+                weather.push(hourly_weather);
+            }
+        }
+
+        Ok(weather)
+    }
+}
+
+pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) -> Result<String> {
+    // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
+    let url = format!(
+      "https://api.openweathermap.org/data/2.5/onecall?exclude=minutely,daily,alerts&units=imperial&appid={}&lat={}&lon={}",
+        open_weather_api_key, latitude, longitude
+    );
+
+    let mut headers = HeaderMap::with_capacity(2);
+    headers.insert("Accept", "application/json".parse()?);
+    headers.insert("Accept-Encoding", "gzip".parse()?);
+
+    let client = reqwest::Client::new();
+
+    let response = client
+        .get(url)
+        .headers(headers)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    trace!("{}", response);
+
+    Ok(response)
+}
+
+pub async fn parse_weather(response: String) -> Result<Vec<Weather>> {
+    let response: Response = serde_json::from_str(&response)?;
+
+    Ok(response.try_into()?)
+}
+
 #[cfg(test)]
 mod test {
+    use super::*;
+
     const EXAMPLE_API_RESPONSE: &str = r#"
     {
         "lat": 33.44,
@@ -119,4 +258,13 @@ mod test {
         ]
       }
     "#;
+
+    #[test]
+    fn test_deserialize() -> Result<()> {
+        let response = serde_json::from_str::<Response>(EXAMPLE_API_RESPONSE);
+
+        assert!(response.is_ok());
+
+        Ok(())
+    }
 }

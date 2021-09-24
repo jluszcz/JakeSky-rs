@@ -18,6 +18,7 @@ pub struct Weather {
     pub apparent_temp: Option<f64>,
 }
 
+#[derive(Debug)]
 pub enum WeatherProvider {
     DarkSky,
     OpenWeather,
@@ -34,14 +35,14 @@ impl WeatherProvider {
     async fn query(&self, api_key: String, latitude: f64, longitude: f64) -> Result<String> {
         match self {
             Self::DarkSky => dark_sky::query(api_key, latitude, longitude).await,
-            Self::OpenWeather => todo!(),
+            Self::OpenWeather => open_weather::query(api_key, latitude, longitude).await,
         }
     }
 
     async fn parse_weather(&self, response: String) -> Result<Vec<Weather>> {
         match self {
             Self::DarkSky => dark_sky::parse_weather(response).await,
-            Self::OpenWeather => todo!(),
+            Self::OpenWeather => open_weather::parse_weather(response).await,
         }
     }
 }
