@@ -61,15 +61,9 @@ fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
 }
 
 fn speakable_weather(weather: &Weather) -> String {
-    let forecast = if "drizzle".eq_ignore_ascii_case(&weather.summary) {
-        "Drizzling"
-    } else {
-        weather.summary.as_str()
-    };
-
     format!(
         "{:.0} and {}",
         weather.apparent_temp.unwrap_or(weather.temp),
-        forecast
+        weather.summary
     )
 }

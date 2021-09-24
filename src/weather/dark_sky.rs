@@ -18,6 +18,12 @@ impl TryFrom<(DateTime<Tz>, &Value)> for Weather {
             .ok_or_else(|| anyhow!("Missing weather summary"))?
             .to_owned();
 
+        let summary = if "drizzle".eq_ignore_ascii_case(&summary) {
+            "Drizzling".into()
+        } else {
+            summary
+        };
+
         let temp = dark_sky_data["temperature"]
             .as_f64()
             .ok_or_else(|| anyhow!("Missing temperature"))?;
@@ -51,6 +57,7 @@ pub async fn query(dark_sky_api_key: String, latitude: f64, longitude: f64) -> R
         .headers(headers)
         .send()
         .await?
+        .error_for_status()?
         .text()
         .await?;
 

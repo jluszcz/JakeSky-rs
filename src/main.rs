@@ -3,12 +3,12 @@ use clap::{App, Arg};
 use jakesky_rs::weather::{self, WeatherProvider};
 use jakesky_rs::{alexa, set_up_logger};
 use log::debug;
-use std::env;
 
 #[derive(Debug)]
 struct Args {
     verbose: bool,
     use_cache: bool,
+    provider: WeatherProvider,
     api_key: String,
     latitude: f64,
     longitude: f64,
@@ -30,6 +30,40 @@ fn parse_args() -> Args {
                 .long("cache")
                 .help("Use cached values, if present, rather than querying remote services."),
         )
+        .arg(
+            Arg::with_name("latitude")
+                .long("latitude")
+                .alias("lat")
+                .required(true)
+                .env("JAKESKY_LATITUDE")
+                .hide_env_values(true)
+                .help("Latitude of location to get weather for"),
+        )
+        .arg(
+            Arg::with_name("longitude")
+                .long("longitude")
+                .alias("long")
+                .required(true)
+                .env("JAKESKY_LONGITUDE")
+                .hide_env_values(true)
+                .help("Longitude of location to get weather for"),
+        )
+        .arg(
+            Arg::with_name("api-key")
+                .short("a")
+                .long("api-key")
+                .required(true)
+                .env("JAKESKY_API_KEY")
+                .hide_env_values(true)
+                .help("API key to use with the weather provider"),
+        )
+        .arg(
+            Arg::with_name("provider")
+                .short("p")
+                .long("provider")
+                .possible_values(&["darksky", "openweather"])
+                .default_value("darksky"),
+        )
         .get_matches();
 
     let verbose = matches.is_present("verbose");
@@ -38,27 +72,34 @@ fn parse_args() -> Args {
 
     let latitude = matches
         .value_of("latitude")
-        .map(|l| l.into())
-        .or_else(|| env::var("JAKESKY_LATITUDE").ok())
         .map(|l| l.parse().expect("Failed to parse latitude"))
-        .expect("Missing latitude");
+        .unwrap();
 
     let longitude = matches
         .value_of("longitude")
-        .map(|l| l.into())
-        .or_else(|| env::var("JAKESKY_LONGITUDE").ok())
         .map(|l| l.parse().expect("Failed to parse longitude"))
-        .expect("Missing longitude");
+        .unwrap();
 
-    let api_key = matches
-        .value_of("api-key")
-        .map(|l| l.into())
-        .or_else(|| env::var("JAKESKY_API_KEY").ok())
-        .expect("Missing Weather API key");
+    let api_key = matches.value_of("api-key").map(|l| l.into()).unwrap();
+
+    let provider = matches
+        .value_of("provider")
+        .map(|l| {
+            if "darksky".eq_ignore_ascii_case(l) {
+                Some(WeatherProvider::DarkSky)
+            } else if "openweather".eq_ignore_ascii_case(l) {
+                Some(WeatherProvider::OpenWeather)
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .unwrap();
 
     Args {
         verbose,
         use_cache: cache,
+        provider,
         api_key,
         latitude,
         longitude,
@@ -72,7 +113,7 @@ async fn main() -> Result<()> {
     debug!("{:?}", args);
 
     let weather = weather::get_weather_info(
-        &WeatherProvider::DarkSky,
+        &args.provider,
         args.use_cache,
         args.api_key,
         args.latitude,
