@@ -39,10 +39,10 @@ impl WeatherProvider {
         }
     }
 
-    async fn parse_weather(&self, response: String) -> Result<Vec<Weather>> {
+    fn parse_weather(&self, response: String) -> Result<Vec<Weather>> {
         match self {
-            Self::DarkSky => dark_sky::parse_weather(response).await,
-            Self::OpenWeather => open_weather::parse_weather(response).await,
+            Self::DarkSky => dark_sky::parse_weather(response),
+            Self::OpenWeather => open_weather::parse_weather(response),
         }
     }
 }
@@ -64,9 +64,7 @@ pub async fn get_weather_info(
         response
     };
 
-    let weather_info = weather_provider.parse_weather(response).await?;
-
-    Ok(weather_info)
+    Ok(weather_provider.parse_weather(response)?)
 }
 
 fn cache_path(weather_provider_id: &'static str, latitude: f64, longitude: f64) -> PathBuf {

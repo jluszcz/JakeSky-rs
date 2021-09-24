@@ -130,10 +130,9 @@ pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) 
     Ok(response)
 }
 
-pub async fn parse_weather(response: String) -> Result<Vec<Weather>> {
+pub fn parse_weather(response: String) -> Result<Vec<Weather>> {
     let response: Response = serde_json::from_str(&response)?;
-
-    Ok(response.try_into()?)
+    response.try_into()
 }
 
 #[cfg(test)]

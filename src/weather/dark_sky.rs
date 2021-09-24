@@ -66,7 +66,7 @@ pub async fn query(dark_sky_api_key: String, latitude: f64, longitude: f64) -> R
     Ok(response)
 }
 
-pub async fn parse_weather(response: String) -> Result<Vec<Weather>> {
+pub fn parse_weather(response: String) -> Result<Vec<Weather>> {
     let response: Value = serde_json::from_str(&response)?;
     let timezone = response["timezone"]
         .as_str()
