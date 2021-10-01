@@ -81,6 +81,7 @@ resource "aws_lambda_function" "jakesky" {
   s3_bucket     = var.code_bucket
   s3_key        = "jakesky.zip"
   role          = aws_iam_role.jakesky_role.arn
+  architectures = ["arm64"]
   runtime       = "provided.al2"
   handler       = "ignored"
   publish       = "false"
