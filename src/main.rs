@@ -35,6 +35,7 @@ fn parse_args() -> Args {
                 .long("latitude")
                 .alias("lat")
                 .required(true)
+                .takes_value(true)
                 .env("JAKESKY_LATITUDE")
                 .hide_env_values(true)
                 .help("Latitude of location to get weather for"),
@@ -44,6 +45,7 @@ fn parse_args() -> Args {
                 .long("longitude")
                 .alias("long")
                 .required(true)
+                .takes_value(true)
                 .env("JAKESKY_LONGITUDE")
                 .hide_env_values(true)
                 .help("Longitude of location to get weather for"),
@@ -53,6 +55,7 @@ fn parse_args() -> Args {
                 .short("a")
                 .long("api-key")
                 .required(true)
+                .takes_value(true)
                 .env("JAKESKY_API_KEY")
                 .hide_env_values(true)
                 .help("API key to use with the weather provider"),
@@ -61,8 +64,10 @@ fn parse_args() -> Args {
             Arg::with_name("provider")
                 .short("p")
                 .long("provider")
+                .takes_value(true)
                 .possible_values(&["darksky", "openweather"])
-                .default_value("darksky"),
+                .default_value("darksky")
+                .help("Which weather provider to use"),
         )
         .get_matches();
 
