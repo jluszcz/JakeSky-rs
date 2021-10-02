@@ -3,6 +3,7 @@ name = "jakesky_rs"
 version = "0.1.0"
 authors = ["Jacob Luszcz"]
 edition = "2018"
+default-run = "jakesky"
 
 [[bin]]
 name = "bootstrap"
