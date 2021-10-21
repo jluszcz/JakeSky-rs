@@ -1,5 +1,5 @@
-use jakesky_rs::weather::{self, WeatherProvider};
-use jakesky_rs::{alexa, set_up_logger};
+use jakesky::weather::{self, WeatherProvider};
+use jakesky::{alexa, set_up_logger};
 use lambda_runtime::{handler_fn, Context};
 use log::debug;
 use serde_json::{json, Value};

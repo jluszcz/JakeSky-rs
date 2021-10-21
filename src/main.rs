@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{App, Arg};
-use jakesky_rs::weather::{self, WeatherProvider};
-use jakesky_rs::{alexa, set_up_logger};
+use jakesky::weather::{self, WeatherProvider};
+use jakesky::{alexa, set_up_logger};
 use log::debug;
 
 #[derive(Debug)]

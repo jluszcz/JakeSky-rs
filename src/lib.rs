@@ -23,7 +23,6 @@ pub fn set_up_logger(verbose: bool) -> Result<()> {
         })
         .level(LevelFilter::Warn)
         .level_for("jakesky", level)
-        .level_for("jakesky_rs", level)
         .chain(std::io::stdout())
         .apply();
 
