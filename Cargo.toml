@@ -2,16 +2,8 @@
 name = "jakesky_rs"
 version = "0.1.0"
 authors = ["Jacob Luszcz"]
-edition = "2018"
+edition = "2021"
 default-run = "jakesky"
-
-[[bin]]
-name = "bootstrap"
-path = "src/lambda.rs"
-
-[[bin]]
-name = "jakesky"
-path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"
@@ -25,3 +17,11 @@ reqwest = { version = "0.11", features = ["gzip", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.12", features = ["full"] }
+
+[[bin]]
+name = "bootstrap"
+path = "src/lambda.rs"
+
+[[bin]]
+name = "jakesky"
+path = "src/main.rs"
