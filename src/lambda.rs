@@ -23,7 +23,7 @@ fn is_warmup_event(event: Value) -> bool {
 }
 
 async fn function(event: Value, _: Context) -> Result<Value, LambdaError> {
-    set_up_logger(false)?;
+    set_up_logger(module_path!(), false)?;
 
     if is_warmup_event(event) {
         debug!("Warmup only, returning early");

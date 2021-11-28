@@ -114,7 +114,7 @@ fn parse_args() -> Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = parse_args();
-    set_up_logger(args.verbose)?;
+    set_up_logger(module_path!(), args.verbose)?;
     debug!("{:?}", args);
 
     let weather = weather::get_weather_info(

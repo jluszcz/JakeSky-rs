@@ -1,10 +1,15 @@
+use std::borrow::Cow;
+
 use anyhow::Result;
 use log::LevelFilter;
 
 pub mod alexa;
 pub mod weather;
 
-pub fn set_up_logger(verbose: bool) -> Result<()> {
+pub fn set_up_logger<T>(calling_module: T, verbose: bool) -> Result<()>
+where
+    T: Into<Cow<'static, str>>,
+{
     let level = if verbose {
         LevelFilter::Debug
     } else {
@@ -23,6 +28,7 @@ pub fn set_up_logger(verbose: bool) -> Result<()> {
         })
         .level(LevelFilter::Warn)
         .level_for("jakesky", level)
+        .level_for(calling_module, level)
         .chain(std::io::stdout())
         .apply();
 
