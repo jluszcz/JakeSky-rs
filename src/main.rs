@@ -19,19 +19,19 @@ fn parse_args() -> Args {
         .version("0.1")
         .author("Jacob Luszcz")
         .arg(
-            Arg::with_name("verbose")
-                .short("v")
+            Arg::new("verbose")
+                .short('v')
                 .long("verbose")
                 .help("Verbose mode. Outputs DEBUG and higher log messages."),
         )
         .arg(
-            Arg::with_name("use-cache")
-                .short("c")
+            Arg::new("use-cache")
+                .short('c')
                 .long("cache")
                 .help("Use cached values, if present, rather than querying remote services."),
         )
         .arg(
-            Arg::with_name("latitude")
+            Arg::new("latitude")
                 .long("latitude")
                 .alias("lat")
                 .required(true)
@@ -41,7 +41,7 @@ fn parse_args() -> Args {
                 .help("Latitude of location to get weather for"),
         )
         .arg(
-            Arg::with_name("longitude")
+            Arg::new("longitude")
                 .long("longitude")
                 .alias("long")
                 .required(true)
@@ -51,8 +51,8 @@ fn parse_args() -> Args {
                 .help("Longitude of location to get weather for"),
         )
         .arg(
-            Arg::with_name("api-key")
-                .short("a")
+            Arg::new("api-key")
+                .short('a')
                 .long("api-key")
                 .required(true)
                 .takes_value(true)
@@ -61,8 +61,8 @@ fn parse_args() -> Args {
                 .help("API key to use with the weather provider"),
         )
         .arg(
-            Arg::with_name("provider")
-                .short("p")
+            Arg::new("provider")
+                .short('p')
                 .long("provider")
                 .takes_value(true)
                 .possible_values(&["darksky", "openweather"])
