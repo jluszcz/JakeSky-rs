@@ -61,9 +61,22 @@ fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
 }
 
 fn speakable_weather(weather: &Weather) -> String {
-    format!(
-        "{:.0} and {}",
-        weather.apparent_temp.unwrap_or(weather.temp),
-        weather.summary
-    )
+    let temp = weather.apparent_temp.unwrap_or(weather.temp);
+    inner_speakable_weather(temp, &weather.summary)
+}
+
+fn inner_speakable_weather(temp: f64, summary: &str) -> String {
+    let temp_modifier = if temp < 0.0 { "minus " } else { "" };
+    format!("{}{:.0} and {}", temp_modifier, temp.abs(), summary)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_speakable_weather() {
+        assert!(inner_speakable_weather(72.0, "foo").starts_with("72 and"));
+        assert!(inner_speakable_weather(-72.0, "foo").starts_with("minus 72 and"));
+    }
 }
