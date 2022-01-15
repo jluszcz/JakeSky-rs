@@ -66,8 +66,12 @@ fn speakable_weather(weather: &Weather) -> String {
 }
 
 fn inner_speakable_weather(temp: f64, summary: &str) -> String {
-    let temp_modifier = if temp < 0.0 { "minus " } else { "" };
-    format!("{}{:.0} and {}", temp_modifier, temp.abs(), summary)
+    format!(
+        "{:.0}{} and {}",
+        temp.abs(),
+        if temp < 0.0 { " below" } else { "" },
+        summary
+    )
 }
 
 #[cfg(test)]
@@ -77,6 +81,6 @@ mod test {
     #[test]
     fn test_speakable_weather() {
         assert!(inner_speakable_weather(72.0, "foo").starts_with("72 and"));
-        assert!(inner_speakable_weather(-72.0, "foo").starts_with("minus 72 and"));
+        assert!(inner_speakable_weather(-72.0, "foo").starts_with("72 below and"));
     }
 }
