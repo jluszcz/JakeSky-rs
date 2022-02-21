@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use jakesky::weather::{self, WeatherProvider};
 use jakesky::{alexa, set_up_logger};
 use log::debug;
@@ -15,7 +15,7 @@ struct Args {
 }
 
 fn parse_args() -> Args {
-    let matches = App::new("JakeSky-rs")
+    let matches = Command::new("JakeSky-rs")
         .version("0.1")
         .author("Jacob Luszcz")
         .arg(
