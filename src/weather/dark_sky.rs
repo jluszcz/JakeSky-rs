@@ -18,11 +18,7 @@ impl TryFrom<(DateTime<Tz>, &Value)> for Weather {
             .ok_or_else(|| anyhow!("Missing weather summary"))?
             .to_owned();
 
-        let summary = if "drizzle".eq_ignore_ascii_case(&summary) {
-            "Drizzling".into()
-        } else {
-            summary
-        };
+        let summary = tweak_summary(summary);
 
         let temp = dark_sky_data["temperature"]
             .as_f64()
@@ -119,4 +115,29 @@ pub fn parse_weather(response: String) -> Result<Vec<Weather>> {
     }
 
     Ok(weather)
+}
+
+fn tweak_summary<T>(summary: T) -> String
+where
+    T: Into<String>,
+{
+    summary
+        .into()
+        .to_ascii_lowercase()
+        .replace("heavy", "heavily")
+        .replace("drizzle", "drizzling")
+        .replace("snow", "snowing")
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_tweak_summary() {
+        assert_eq!("drizzling", tweak_summary("drizzle"));
+        assert_eq!("snowing", tweak_summary("snow"));
+        assert_eq!("heavily snowing", tweak_summary("heavy snow"));
+        assert_eq!("other", tweak_summary("Other"));
+    }
 }
