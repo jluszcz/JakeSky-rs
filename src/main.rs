@@ -89,7 +89,7 @@ fn parse_args() -> Args {
 
     let provider = matches
         .value_of("provider")
-        .map(|l| {
+        .and_then(|l| {
             if "darksky".eq_ignore_ascii_case(l) {
                 Some(WeatherProvider::DarkSky)
             } else if "openweather".eq_ignore_ascii_case(l) {
@@ -98,7 +98,6 @@ fn parse_args() -> Args {
                 None
             }
         })
-        .flatten()
         .unwrap();
 
     Args {
