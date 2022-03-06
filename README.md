@@ -7,4 +7,4 @@ is also included.
 
 ## Status
 
-[![Build Status](https://travis-ci.com/jluszcz/JakeSky-rs.svg?branch=main)](https://travis-ci.com/jluszcz/JakeSky-rs)
+[![Build Status](https://app.travis-ci.com/jluszcz/JakeSky-rs.svg?branch=main)](https://app.travis-ci.com/jluszcz/JakeSky-rs)
