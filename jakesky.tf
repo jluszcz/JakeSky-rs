@@ -40,10 +40,6 @@ resource "aws_lambda_permission" "jakesky_allow_cloudwatch" {
   source_arn    = aws_cloudwatch_event_rule.jakesky_schedule.arn
 }
 
-resource "aws_kms_key" "lambda_default_key" {
-  enable_key_rotation = "true"
-}
-
 data "aws_iam_policy_document" "jakesky_role_policy_document" {
   statement {
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:Describe*"]
@@ -89,7 +85,6 @@ resource "aws_lambda_function" "jakesky" {
   timeout       = 5
   memory_size   = 128
 
-  kms_key_arn = aws_kms_key.lambda_default_key.arn
   environment {
     variables = {
       JAKESKY_API_KEY      = var.jakesky_api_key
