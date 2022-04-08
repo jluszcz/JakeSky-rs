@@ -64,7 +64,7 @@ pub async fn get_weather_info(
         response
     };
 
-    Ok(weather_provider.parse_weather(response)?)
+    weather_provider.parse_weather(response)
 }
 
 fn cache_path(weather_provider_id: &'static str, latitude: f64, longitude: f64) -> PathBuf {
