@@ -1,11 +1,44 @@
 use crate::weather::Weather;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Timelike};
 use chrono_tz::Tz;
 use log::info;
 use serde_json::{json, Value};
 
 pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
+    let first_weather = weather
+        .first()
+        .ok_or_else(|| anyhow!("Cannot forecast empty weather"))?;
+
+    for w in weather.iter().skip(1) {
+        if w != first_weather {
+            return forecast_different_weather(weather);
+        }
+    }
+
+    forecast_same_weather(first_weather)
+}
+
+fn to_response(forecast: String) -> Result<Value> {
+    info!(r#"Forecast: "{}""#, forecast);
+
+    Ok(json!({
+        "version": "1.0",
+        "response": {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": forecast,
+            }
+        }
+    }))
+}
+
+fn forecast_same_weather(weather: &Weather) -> Result<Value> {
+    let weather = speakable_weather(weather);
+    to_response(format!("All day, it will be {weather}."))
+}
+
+fn forecast_different_weather(weather: Vec<Weather>) -> Result<Value> {
     let mut forecast = Vec::with_capacity(weather.len());
 
     forecast.push(format!(
@@ -34,19 +67,7 @@ pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
         ));
     }
 
-    let forecast = forecast.join(" ");
-
-    info!(r#"Forecast: "{}""#, forecast);
-
-    Ok(json!({
-        "version": "1.0",
-        "response": {
-            "outputSpeech": {
-                "type": "PlainText",
-                "text": forecast,
-            }
-        }
-    }))
+    to_response(forecast.join(" "))
 }
 
 fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
@@ -61,8 +82,7 @@ fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
 }
 
 fn speakable_weather(weather: &Weather) -> String {
-    let temp = weather.apparent_temp.unwrap_or(weather.temp);
-    inner_speakable_weather(temp, &weather.summary)
+    inner_speakable_weather(weather.temp(), &weather.summary)
 }
 
 fn inner_speakable_weather(temp: f64, summary: &str) -> String {
