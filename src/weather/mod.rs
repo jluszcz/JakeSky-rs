@@ -14,8 +14,20 @@ pub mod open_weather;
 pub struct Weather {
     pub timestamp: DateTime<Tz>,
     pub summary: String,
-    pub temp: f64,
-    pub apparent_temp: Option<f64>,
+    temp: f64,
+    apparent_temp: Option<f64>,
+}
+
+impl Weather {
+    pub fn temp(&self) -> f64 {
+        self.apparent_temp.unwrap_or(self.temp)
+    }
+}
+
+impl PartialEq for Weather {
+    fn eq(&self, other: &Self) -> bool {
+        self.summary == other.summary && self.temp() == other.temp()
+    }
 }
 
 #[derive(Debug)]
