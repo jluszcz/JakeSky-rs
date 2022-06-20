@@ -14,35 +14,8 @@ pub mod open_weather;
 pub struct Weather {
     pub timestamp: DateTime<Tz>,
     pub summary: String,
-    temp: f64,
-    apparent_temp: Option<f64>,
-}
-
-impl Weather {
-    #[cfg(test)]
-    pub fn test<S>(summary: Option<S>) -> Self
-    where
-        S: Into<String>,
-    {
-        Weather {
-            timestamp: Utc::now().with_timezone(&Tz::UTC),
-            summary: summary
-                .map(|s| s.into())
-                .unwrap_or_else(|| "sunny".to_string()),
-            temp: 72.0,
-            apparent_temp: None,
-        }
-    }
-
-    pub fn temp(&self) -> f64 {
-        self.apparent_temp.unwrap_or(self.temp)
-    }
-}
-
-impl PartialEq for Weather {
-    fn eq(&self, other: &Self) -> bool {
-        self.summary == other.summary && self.temp() == other.temp()
-    }
+    pub temp: f64,
+    pub apparent_temp: Option<f64>,
 }
 
 #[derive(Debug)]
