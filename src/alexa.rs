@@ -33,7 +33,6 @@ fn to_forecast(weather: Vec<Weather>) -> Result<Vec<String>> {
         speakable_weather(weather.first().unwrap())
     ));
 
-    println!("{:?}", weather);
     for w in weather.iter().skip(1).take(weather.len().saturating_sub(2)) {
         forecast.push(format!(
             "At {}, it will be {}.",
