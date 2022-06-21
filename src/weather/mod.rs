@@ -18,6 +18,23 @@ pub struct Weather {
     pub apparent_temp: Option<f64>,
 }
 
+impl Weather {
+    #[cfg(test)]
+    pub fn test<S>(summary: Option<S>) -> Self
+    where
+        S: Into<String>,
+    {
+        Weather {
+            timestamp: Utc::now().with_timezone(&Tz::UTC),
+            summary: summary
+                .map(|s| s.into())
+                .unwrap_or_else(|| "sunny".to_string()),
+            temp: 72.0,
+            apparent_temp: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum WeatherProvider {
     DarkSky,
