@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 use jakesky::weather::{self, WeatherProvider};
 use jakesky::{alexa, set_up_logger};
 use log::debug;
@@ -22,12 +22,14 @@ fn parse_args() -> Args {
             Arg::new("verbose")
                 .short('v')
                 .long("verbose")
+                .action(ArgAction::SetTrue)
                 .help("Verbose mode. Outputs DEBUG and higher log messages."),
         )
         .arg(
             Arg::new("use-cache")
                 .short('c')
                 .long("cache")
+                .action(ArgAction::SetTrue)
                 .help("Use cached values, if present, rather than querying remote services."),
         )
         .arg(
@@ -35,9 +37,9 @@ fn parse_args() -> Args {
                 .long("latitude")
                 .alias("lat")
                 .required(true)
-                .takes_value(true)
                 .env("JAKESKY_LATITUDE")
                 .hide_env_values(true)
+                .value_parser(clap::value_parser!(f64))
                 .help("Latitude of location to get weather for"),
         )
         .arg(
@@ -45,9 +47,9 @@ fn parse_args() -> Args {
                 .long("longitude")
                 .alias("long")
                 .required(true)
-                .takes_value(true)
                 .env("JAKESKY_LONGITUDE")
                 .hide_env_values(true)
+                .value_parser(clap::value_parser!(f64))
                 .help("Longitude of location to get weather for"),
         )
         .arg(
@@ -55,7 +57,6 @@ fn parse_args() -> Args {
                 .short('a')
                 .long("api-key")
                 .required(true)
-                .takes_value(true)
                 .env("JAKESKY_API_KEY")
                 .hide_env_values(true)
                 .help("API key to use with the weather provider"),
@@ -64,31 +65,27 @@ fn parse_args() -> Args {
             Arg::new("provider")
                 .short('p')
                 .long("provider")
-                .takes_value(true)
-                .possible_values(&["darksky", "openweather"])
+                .value_parser(["darksky", "openweather"])
                 .default_value("darksky")
                 .help("Which weather provider to use"),
         )
         .get_matches();
 
-    let verbose = matches.is_present("verbose");
+    let verbose = matches.get_flag("verbose");
 
-    let cache = matches.is_present("use-cache");
+    let cache = matches.get_flag("use-cache");
 
-    let latitude = matches
-        .value_of("latitude")
-        .map(|l| l.parse().expect("Failed to parse latitude"))
+    let latitude = *matches.get_one::<f64>("latitude").unwrap();
+
+    let longitude = *matches.get_one::<f64>("longitude").unwrap();
+
+    let api_key = matches
+        .get_one::<String>("api-key")
+        .map(|l| l.into())
         .unwrap();
-
-    let longitude = matches
-        .value_of("longitude")
-        .map(|l| l.parse().expect("Failed to parse longitude"))
-        .unwrap();
-
-    let api_key = matches.value_of("api-key").map(|l| l.into()).unwrap();
 
     let provider = matches
-        .value_of("provider")
+        .get_one::<String>("provider")
         .and_then(|l| {
             if "darksky".eq_ignore_ascii_case(l) {
                 Some(WeatherProvider::DarkSky)
