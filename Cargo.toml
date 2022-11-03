@@ -8,10 +8,10 @@ default-run = "jakesky"
 [dependencies]
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.6"
+chrono-tz = "0.8"
 clap = { version = "4.0", features = ["env"] }
 fern = "0.6"
-lambda_runtime = "0.6"
+lambda_runtime = "0.7"
 log = "0.4"
 reqwest = { version = "0.11", features = ["gzip", "json"] }
 serde = { version = "1.0", features = ["derive"] }
