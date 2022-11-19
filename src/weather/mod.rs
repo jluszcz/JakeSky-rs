@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
-pub mod dark_sky;
 pub mod open_weather;
 
 #[derive(Debug)]
@@ -37,28 +36,24 @@ impl Weather {
 
 #[derive(Debug)]
 pub enum WeatherProvider {
-    DarkSky,
     OpenWeather,
 }
 
 impl WeatherProvider {
     pub fn id(&self) -> &'static str {
         match self {
-            Self::DarkSky => "darksky",
             Self::OpenWeather => "openweather",
         }
     }
 
     async fn query(&self, api_key: String, latitude: f64, longitude: f64) -> Result<String> {
         match self {
-            Self::DarkSky => dark_sky::query(api_key, latitude, longitude).await,
             Self::OpenWeather => open_weather::query(api_key, latitude, longitude).await,
         }
     }
 
     fn parse_weather(&self, response: String) -> Result<Vec<Weather>> {
         match self {
-            Self::DarkSky => dark_sky::parse_weather(response),
             Self::OpenWeather => open_weather::parse_weather(response),
         }
     }

@@ -35,7 +35,7 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
 
     let weather = weather::get_weather_info(
-        &WeatherProvider::DarkSky,
+        &WeatherProvider::OpenWeather,
         false,
         api_key,
         latitude,

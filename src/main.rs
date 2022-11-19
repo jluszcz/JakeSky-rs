@@ -65,8 +65,8 @@ fn parse_args() -> Args {
             Arg::new("provider")
                 .short('p')
                 .long("provider")
-                .value_parser(["darksky", "openweather"])
-                .default_value("darksky")
+                .value_parser(["openweather"])
+                .default_value("openweather")
                 .help("Which weather provider to use"),
         )
         .get_matches();
@@ -87,9 +87,7 @@ fn parse_args() -> Args {
     let provider = matches
         .get_one::<String>("provider")
         .and_then(|l| {
-            if "darksky".eq_ignore_ascii_case(l) {
-                Some(WeatherProvider::DarkSky)
-            } else if "openweather".eq_ignore_ascii_case(l) {
+            if "openweather".eq_ignore_ascii_case(l) {
                 Some(WeatherProvider::OpenWeather)
             } else {
                 None
