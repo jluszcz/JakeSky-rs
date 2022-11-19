@@ -83,7 +83,7 @@ impl TryFrom<Response> for Vec<Weather> {
         for hourly_weather in response.hourly {
             let hourly_weather = Weather::try_from(&(timezone, hourly_weather))?;
 
-            if hourly_weather.timestamp.date() > now.date() {
+            if hourly_weather.timestamp.date_naive() > now.date_naive() {
                 debug!("{:?} is no longer relevant", hourly_weather.timestamp);
                 break;
             }

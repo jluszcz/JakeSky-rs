@@ -84,7 +84,7 @@ fn cache_path(weather_provider_id: &'static str, latitude: f64, longitude: f64) 
     path.push(format!(
         "{}-{}-{:.1}-{:.1}.json",
         weather_provider_id,
-        Utc::today().format("%Y%m%d"),
+        Utc::now().date_naive().format("%Y%m%d"),
         latitude.abs(),
         longitude.abs()
     ));
