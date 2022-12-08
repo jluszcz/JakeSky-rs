@@ -44,8 +44,8 @@ impl TryFrom<&(Tz, WeatherItem)> for Weather {
 
         let summary = if weather.weather.len() != 1 {
             return Err(anyhow!(
-                "Invalid number of weather items: {}",
-                weather.weather.len()
+                "Invalid number of weather items: {:?}",
+                weather.weather
             ));
         } else {
             let summary = &weather.weather[0].main;
