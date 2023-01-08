@@ -1,4 +1,4 @@
 *zip
 .terraform*
-/jakesky-env
 /target
+env-*
