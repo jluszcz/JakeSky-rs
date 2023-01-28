@@ -123,8 +123,7 @@ impl TryFrom<Response> for Vec<Weather> {
 pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) -> Result<String> {
     // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
     let url = format!(
-      "https://api.openweathermap.org/data/2.5/onecall?exclude=minutely,daily,alerts&units=imperial&appid={}&lat={}&lon={}",
-        open_weather_api_key, latitude, longitude
+      "https://api.openweathermap.org/data/2.5/onecall?exclude=minutely,daily,alerts&units=imperial&appid={open_weather_api_key}&lat={latitude}&lon={longitude}"
     );
 
     let mut headers = HeaderMap::with_capacity(2);
