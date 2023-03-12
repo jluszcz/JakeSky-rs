@@ -4,7 +4,7 @@ use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use log::{debug, info, trace};
-use reqwest::header::HeaderMap;
+use reqwest::{Client, Method};
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
@@ -122,19 +122,20 @@ impl TryFrom<Response> for Vec<Weather> {
 
 pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) -> Result<String> {
     // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
-    let url = format!(
-      "https://api.openweathermap.org/data/2.5/onecall?exclude=minutely,daily,alerts&units=imperial&appid={open_weather_api_key}&lat={latitude}&lon={longitude}"
-    );
-
-    let mut headers = HeaderMap::with_capacity(2);
-    headers.insert("Accept", "application/json".parse()?);
-    headers.insert("Accept-Encoding", "gzip".parse()?);
-
-    let client = reqwest::Client::new();
-
-    let response = client
-        .get(url)
-        .headers(headers)
+    let response = Client::new()
+        .request(
+            Method::GET,
+            "https://api.openweathermap.org/data/2.5/onecall",
+        )
+        .header("Accept", "application/json")
+        .header("Accept-Encoding", "gzip")
+        .query(&[
+            ("exclude", "minutely,daily,alerts"),
+            ("units", "imperial"),
+            ("appid", &open_weather_api_key),
+            ("lat", &format!("{latitude}")),
+            ("lon", &format!("{longitude}")),
+        ])
         .send()
         .await?
         .error_for_status()?
