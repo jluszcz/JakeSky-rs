@@ -1,4 +1,4 @@
-use jakesky::weather::{self, WeatherProvider};
+use jakesky::weather::WeatherProvider;
 use jakesky::{alexa, set_up_logger};
 use lambda_runtime::{service_fn, LambdaEvent};
 use log::debug;
@@ -34,14 +34,9 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
 
-    let weather = weather::get_weather_info(
-        &WeatherProvider::OpenWeather,
-        false,
-        api_key,
-        latitude,
-        longitude,
-    )
-    .await?;
+    let weather = WeatherProvider::AccuWeather
+        .get_weather(false, &api_key, latitude, longitude)
+        .await?;
 
     Ok(alexa::forecast(weather)?)
 }

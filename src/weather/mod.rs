@@ -1,12 +1,15 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
-use log::debug;
+use log::{debug, trace};
 use std::env;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
+pub mod accu_weather;
 pub mod open_weather;
 
 #[derive(Debug)]
@@ -35,61 +38,112 @@ impl Weather {
 }
 
 #[derive(Debug)]
+pub struct WeatherForecast {
+    pub current: Weather,
+    pub upcoming: Vec<Weather>,
+    pub timezone: Tz,
+}
+
+#[derive(Debug)]
 pub enum WeatherProvider {
+    AccuWeather,
     OpenWeather,
 }
 
 impl WeatherProvider {
     pub fn id(&self) -> &'static str {
         match self {
+            Self::AccuWeather => "accuweather",
             Self::OpenWeather => "openweather",
         }
     }
 
-    async fn query(&self, api_key: String, latitude: f64, longitude: f64) -> Result<String> {
-        match self {
-            Self::OpenWeather => open_weather::query(api_key, latitude, longitude).await,
-        }
-    }
+    pub async fn get_weather(
+        &self,
+        use_cache: bool,
+        api_key: &str,
+        latitude: f64,
+        longitude: f64,
+    ) -> Result<Vec<Weather>> {
+        let weather = match self {
+            Self::AccuWeather => {
+                accu_weather::get_weather(use_cache, api_key, latitude, longitude).await
+            }
+            Self::OpenWeather => {
+                open_weather::get_weather(use_cache, api_key, latitude, longitude).await
+            }
+        }?;
+        debug!("{:?}", weather);
 
-    fn parse_weather(&self, response: String) -> Result<Vec<Weather>> {
-        match self {
-            Self::OpenWeather => open_weather::parse_weather(response),
+        let now = Utc::now().with_timezone(&weather.timezone);
+
+        let hours_of_interest = hours_of_interest(now, None, false);
+
+        let mut filtered = Vec::with_capacity(1 + hours_of_interest.len());
+
+        filtered.push(weather.current);
+
+        for hourly_weather in weather.upcoming {
+            if hourly_weather.timestamp.date_naive() > now.date_naive() {
+                trace!("{:?} is no longer relevant", hourly_weather.timestamp);
+                break;
+            }
+
+            if hourly_weather.timestamp.hour() == now.hour() {
+                trace!("Skipping current hour: {:?}", hourly_weather.timestamp);
+                continue;
+            }
+
+            if hours_of_interest.contains(&hourly_weather.timestamp.hour()) {
+                debug!("{:?}", hourly_weather);
+                filtered.push(hourly_weather);
+            }
+        }
+
+        Ok(filtered)
+    }
+}
+
+impl FromStr for WeatherProvider {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if Self::AccuWeather.id().eq_ignore_ascii_case(s) {
+            Ok(Self::AccuWeather)
+        } else if Self::OpenWeather.id().eq_ignore_ascii_case(s) {
+            Ok(Self::OpenWeather)
+        } else {
+            Err(anyhow!("Unknown weather provider: {}", s))
         }
     }
 }
 
-pub async fn get_weather_info(
-    weather_provider: &WeatherProvider,
-    use_cache: bool,
-    api_key: String,
-    latitude: f64,
-    longitude: f64,
-) -> Result<Vec<Weather>> {
-    let cache_path = cache_path(weather_provider.id(), latitude, longitude);
-
-    let response = if let Some(cached) = try_cached(use_cache, &cache_path).await? {
-        cached
-    } else {
-        let response = weather_provider.query(api_key, latitude, longitude).await?;
-        try_write_cache(use_cache, &cache_path, &response).await?;
-        response
-    };
-
-    weather_provider.parse_weather(response)
-}
-
-fn cache_path(weather_provider_id: &'static str, latitude: f64, longitude: f64) -> PathBuf {
+pub fn get_cache_path(weather_provider: &WeatherProvider, token: &str) -> PathBuf {
     let mut path = env::temp_dir();
     path.push(format!(
-        "{}-{}-{:.1}-{:.1}.json",
-        weather_provider_id,
+        "{}-{}-{token}.json",
+        weather_provider.id(),
         Utc::now().date_naive().format("%Y%m%d"),
-        latitude.abs(),
-        longitude.abs()
     ));
 
     path
+}
+
+pub async fn try_cached_query<F>(
+    use_cache: bool,
+    cache_path: &Path,
+    query: impl Fn() -> F,
+) -> Result<String>
+where
+    F: Future<Output = Result<String>>,
+{
+    if let Some(cached) = try_cached(use_cache, cache_path).await? {
+        Ok(cached)
+    } else {
+        let response = query().await?;
+        try_write_cache(use_cache, cache_path, &response).await?;
+        Ok(response)
+    }
 }
 
 async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>> {

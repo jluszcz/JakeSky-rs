@@ -1,13 +1,15 @@
-use crate::weather::{self, Weather};
+use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
 use anyhow::{anyhow, Result};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use reqwest::{Client, Method};
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
+
+const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::OpenWeather;
 
 #[derive(Deserialize, Debug)]
 struct Response {
@@ -76,7 +78,7 @@ impl TryFrom<&(Tz, WeatherItem)> for Weather {
         let summary = weather.try_into()?;
 
         Ok(Self {
-            timestamp,
+            timestamp: timestamp.with_timezone(tz),
             summary,
             temp: weather.temp,
             apparent_temp: weather.apparent_temp,
@@ -93,8 +95,6 @@ impl TryFrom<Response> for Vec<Weather> {
 
         let now = timezone.from_utc_datetime(&response.current.timestamp.naive_utc());
 
-        let hours_of_interest = weather::hours_of_interest(now, None, false);
-
         let mut weather = vec![Weather::try_from(&(timezone, response.current))?];
 
         for hourly_weather in response.hourly {
@@ -110,17 +110,39 @@ impl TryFrom<Response> for Vec<Weather> {
                 continue;
             }
 
-            if hours_of_interest.contains(&hourly_weather.timestamp.hour()) {
-                info!("{:?}", hourly_weather);
-                weather.push(hourly_weather);
-            }
+            weather.push(hourly_weather);
         }
 
         Ok(weather)
     }
 }
 
-pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) -> Result<String> {
+pub async fn get_weather(
+    use_cache: bool,
+    api_key: &str,
+    latitude: f64,
+    longitude: f64,
+) -> Result<WeatherForecast> {
+    let cache_path = weather::get_cache_path(
+        WEATHER_PROVIDER,
+        &format!("{:.1}_{:.1}", latitude, longitude),
+    );
+
+    let response = weather::try_cached_query(use_cache, &cache_path, || {
+        query(api_key, latitude, longitude)
+    })
+    .await?;
+
+    let mut weather = parse_weather(response)?;
+
+    Ok(WeatherForecast {
+        timezone: weather[0].timestamp.timezone(),
+        current: weather.remove(0),
+        upcoming: weather,
+    })
+}
+
+async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
     // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
     let response = Client::new()
         .request(
@@ -132,7 +154,7 @@ pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) 
         .query(&[
             ("exclude", "minutely,daily,alerts"),
             ("units", "imperial"),
-            ("appid", &open_weather_api_key),
+            ("appid", api_key),
             ("lat", &format!("{latitude}")),
             ("lon", &format!("{longitude}")),
         ])
@@ -147,7 +169,7 @@ pub async fn query(open_weather_api_key: String, latitude: f64, longitude: f64) 
     Ok(response)
 }
 
-pub fn parse_weather(response: String) -> Result<Vec<Weather>> {
+fn parse_weather(response: String) -> Result<Vec<Weather>> {
     let response: Response = serde_json::from_str(&response)?;
     response.try_into()
 }

@@ -1,6 +1,8 @@
+use std::str::FromStr;
+
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
-use jakesky::weather::{self, WeatherProvider};
+use jakesky::weather::WeatherProvider;
 use jakesky::{alexa, set_up_logger};
 use log::debug;
 
@@ -65,7 +67,10 @@ fn parse_args() -> Args {
             Arg::new("provider")
                 .short('p')
                 .long("provider")
-                .value_parser(["openweather"])
+                .value_parser([
+                    WeatherProvider::AccuWeather.id(),
+                    WeatherProvider::OpenWeather.id(),
+                ])
                 .default_value("openweather")
                 .help("Which weather provider to use"),
         )
@@ -73,7 +78,7 @@ fn parse_args() -> Args {
 
     let verbose = matches.get_flag("verbose");
 
-    let cache = matches.get_flag("use-cache");
+    let use_cache = matches.get_flag("use-cache");
 
     let latitude = *matches.get_one::<f64>("latitude").unwrap();
 
@@ -86,18 +91,12 @@ fn parse_args() -> Args {
 
     let provider = matches
         .get_one::<String>("provider")
-        .and_then(|l| {
-            if "openweather".eq_ignore_ascii_case(l) {
-                Some(WeatherProvider::OpenWeather)
-            } else {
-                None
-            }
-        })
+        .and_then(|p| WeatherProvider::from_str(p).ok())
         .unwrap();
 
     Args {
         verbose,
-        use_cache: cache,
+        use_cache,
         provider,
         api_key,
         latitude,
@@ -111,14 +110,10 @@ async fn main() -> Result<()> {
     set_up_logger(module_path!(), args.verbose)?;
     debug!("{:?}", args);
 
-    let weather = weather::get_weather_info(
-        &args.provider,
-        args.use_cache,
-        args.api_key,
-        args.latitude,
-        args.longitude,
-    )
-    .await?;
+    let weather = args
+        .provider
+        .get_weather(args.use_cache, &args.api_key, args.latitude, args.longitude)
+        .await?;
 
     alexa::forecast(weather)?;
 

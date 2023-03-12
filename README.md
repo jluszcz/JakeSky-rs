@@ -1,7 +1,7 @@
 # JakeSky-rs
 
 Returns the current weather, as well as a forecast for 8am, 12pm, and 6pm for the current date. If it's a Friday or Saturday, 10pm
-is also included.
+may optionally be included.
 
 ## Status
 
@@ -9,4 +9,5 @@ is also included.
 
 ## Supported Weather Providers
 
+- [AccuWeather](https://www.accuweather.com)
 - [OpenWeather](https://openweathermap.org)
