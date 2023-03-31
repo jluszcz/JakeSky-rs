@@ -9,7 +9,7 @@ default-run = "jakesky"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.8"
-clap = { version = "4.1", features = ["env"] }
+clap = { version = "4.2", features = ["env"] }
 fern = "0.6"
 lambda_runtime = "0.7"
 log = "0.4"
