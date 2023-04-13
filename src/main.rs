@@ -71,7 +71,7 @@ fn parse_args() -> Args {
                     WeatherProvider::AccuWeather.id(),
                     WeatherProvider::OpenWeather.id(),
                 ])
-                .default_value("openweather")
+                .default_value("accuweather")
                 .help("Which weather provider to use"),
         )
         .get_matches();
