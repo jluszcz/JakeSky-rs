@@ -26,7 +26,7 @@ impl Weather {
     where
         S: Into<String>,
     {
-        Weather {
+        Self {
             timestamp: Utc::now().with_timezone(&Tz::UTC),
             summary: summary
                 .map(|s| s.into())

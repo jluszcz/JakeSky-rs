@@ -77,9 +77,9 @@ impl TryFrom<(CurrentConditionsResponse, &str)> for Weather {
         let timezone = Tz::from_str(timezone)
             .map_err(|_| anyhow!("Failed to parse timezone from {}", timezone))?;
 
-        Ok(Weather {
+        Ok(Self {
             timestamp: curr.timestamp.with_timezone(&timezone),
-            summary: curr.weather,
+            summary: normalize_weather(&curr.weather),
             temp: curr.temp.temp.value,
             apparent_temp: curr.feels_like_temp.map(|t| t.temp.value),
         })
@@ -94,13 +94,19 @@ impl TryFrom<(WeatherResponse, &str)> for Weather {
         let timezone = Tz::from_str(timezone)
             .map_err(|_| anyhow!("Failed to parse timezone from {}", timezone))?;
 
-        Ok(Weather {
+        Ok(Self {
             timestamp: weather.timestamp.with_timezone(&timezone),
-            summary: weather.weather,
+            summary: normalize_weather(&weather.weather),
             temp: weather.temp.value,
             apparent_temp: weather.feels_like_temp.map(|f| f.value),
         })
     }
+}
+
+fn normalize_weather(weather: &str) -> String {
+    weather
+        .replace("w/", "with")
+        .replace("t-storms", "thunderstorms")
 }
 
 async fn http_get<T>(url: &str, params: &T) -> Result<String>
