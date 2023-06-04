@@ -5,7 +5,7 @@ may optionally be included.
 
 ## Status
 
-[![Build Status](https://app.travis-ci.com/jluszcz/JakeSky-rs.svg?branch=main)](https://app.travis-ci.com/jluszcz/JakeSky-rs)
+![Status Badge](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-test.yml/badge.svg)
 
 ## Supported Weather Providers
 
