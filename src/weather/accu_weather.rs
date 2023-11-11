@@ -1,4 +1,5 @@
 use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
+use again::RetryPolicy;
 use anyhow::{anyhow, Result};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
@@ -7,6 +8,7 @@ use log::trace;
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use std::time::Duration;
 
 const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::AccuWeather;
 
@@ -113,14 +115,21 @@ async fn http_get<T>(url: &str, params: &T) -> Result<String>
 where
     T: Serialize + ?Sized,
 {
-    let response = Client::new()
-        .request(Method::GET, url)
-        .header("Accept", "application/json")
-        .header("Accept-Encoding", "gzip")
-        .query(params)
-        .send()
+    let retry_policy = RetryPolicy::exponential(Duration::from_millis(100))
+        .with_jitter(true)
+        .with_max_delay(Duration::from_secs(1))
+        .with_max_retries(10);
+
+    let response = retry_policy
+        .retry(|| {
+            Client::new()
+                .request(Method::GET, url)
+                .header("Accept", "application/json")
+                .header("Accept-Encoding", "gzip")
+                .query(params)
+                .send()
+        })
         .await?
-        .error_for_status()?
         .text()
         .await?;
 

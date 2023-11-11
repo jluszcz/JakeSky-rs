@@ -1,4 +1,5 @@
 use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
+use again::RetryPolicy;
 use anyhow::{anyhow, Result};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
@@ -8,6 +9,7 @@ use reqwest::{Client, Method};
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
+use std::time::Duration;
 
 const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::OpenWeather;
 
@@ -143,22 +145,30 @@ pub async fn get_weather(
 }
 
 async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
+    let retry_policy = RetryPolicy::exponential(Duration::from_millis(100))
+        .with_jitter(true)
+        .with_max_delay(Duration::from_secs(1))
+        .with_max_retries(10);
+
     // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
-    let response = Client::new()
-        .request(
-            Method::GET,
-            "https://api.openweathermap.org/data/2.5/onecall",
-        )
-        .header("Accept", "application/json")
-        .header("Accept-Encoding", "gzip")
-        .query(&[
-            ("exclude", "minutely,daily,alerts"),
-            ("units", "imperial"),
-            ("appid", api_key),
-            ("lat", &format!("{latitude}")),
-            ("lon", &format!("{longitude}")),
-        ])
-        .send()
+    let response = retry_policy
+        .retry(|| {
+            Client::new()
+                .request(
+                    Method::GET,
+                    "https://api.openweathermap.org/data/2.5/onecall",
+                )
+                .header("Accept", "application/json")
+                .header("Accept-Encoding", "gzip")
+                .query(&[
+                    ("exclude", "minutely,daily,alerts"),
+                    ("units", "imperial"),
+                    ("appid", api_key),
+                    ("lat", &format!("{latitude}")),
+                    ("lon", &format!("{longitude}")),
+                ])
+                .send()
+        })
         .await?
         .error_for_status()?
         .text()
