@@ -156,7 +156,7 @@ async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
             Client::new()
                 .request(
                     Method::GET,
-                    "https://api.openweathermap.org/data/2.5/onecall",
+                    "https://api.openweathermap.org/data/3.0/onecall",
                 )
                 .header("Accept", "application/json")
                 .header("Accept-Encoding", "gzip")
