@@ -5,7 +5,7 @@ may optionally be included.
 
 ## Status
 
-![Status Badge](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-test.yml/badge.svg)
+[![Status Badge](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-test.yml)
 
 ## Supported Weather Providers
 
