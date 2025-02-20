@@ -12,3 +12,10 @@ repos:
     -   id: file-contents-sorter
         files: .gitignore
     -   id: trailing-whitespace
+-   repo: local
+    hooks:
+        - id: cargo-fmt
+          name: cargo fmt
+          entry: cargo fmt --check -q
+          language: system
+          pass_filenames: false
