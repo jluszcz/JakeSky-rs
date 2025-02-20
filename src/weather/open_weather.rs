@@ -1,6 +1,6 @@
 use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
 use again::RetryPolicy;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;

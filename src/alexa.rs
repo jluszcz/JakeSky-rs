@@ -1,9 +1,9 @@
 use crate::weather::Weather;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Timelike};
 use chrono_tz::Tz;
 use log::info;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
     let forecast = to_forecast(weather)?.join(" ");

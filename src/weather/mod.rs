@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use log::{debug, trace};
@@ -137,12 +137,13 @@ pub async fn try_cached_query<F>(
 where
     F: Future<Output = Result<String>>,
 {
-    if let Some(cached) = try_cached(use_cache, cache_path).await? {
-        Ok(cached)
-    } else {
-        let response = query().await?;
-        try_write_cache(use_cache, cache_path, &response).await?;
-        Ok(response)
+    match try_cached(use_cache, cache_path).await? {
+        Some(cached) => Ok(cached),
+        _ => {
+            let response = query().await?;
+            try_write_cache(use_cache, cache_path, &response).await?;
+            Ok(response)
+        }
     }
 }
 
