@@ -78,7 +78,7 @@ resource "aws_lambda_function" "jakesky" {
   s3_key        = "jakesky.zip"
   role          = aws_iam_role.jakesky_role.arn
   architectures = ["arm64"]
-  runtime       = "provided.al2"
+  runtime       = "provided.al2023"
   handler       = "ignored"
   publish       = "false"
   description   = "Retrieve local weather for commutes and lunchtime"
