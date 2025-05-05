@@ -51,8 +51,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update Rust
-        run: rustup update
+      - name: Update and Configure Rust
+        run: |
+          sudo apt-get install -y musl-tools
+          rustup update
+          rustup target add x86_64-unknown-linux-musl
 
       - name: Dump Toolchain Info
         run: |
@@ -61,8 +64,8 @@ jobs:
 
       - name: Build
         run: |
-          cargo build --release --bin lambda
-          cp target/release/lambda bootstrap
+          cargo build --release --target x86_64-unknown-linux-musl --bin lambda
+          cp target/x86_64-unknown-linux-musl/release/lambda bootstrap
           zip -j jakesky.zip bootstrap
 
       - name: Configure AWS Credentials
