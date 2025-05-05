@@ -60,7 +60,10 @@ jobs:
           rustc --version
 
       - name: Build
-        run: cargo build --release --bin bootstrap
+        run: |
+          cargo build --release --bin lambda
+          cp target/release/lambda bootstrap
+          zip -j jakesky.zip bootstrap
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
@@ -72,7 +75,4 @@ jobs:
       - name: Deploy Lambda
         env:
           AWS_BUCKET: ${{ secrets.AWS_BUCKET }}
-        run: |
-          cp target/release/bootstrap .
-          zip -j jakesky.zip bootstrap
-          aws s3 cp jakesky.zip s3://${AWS_BUCKET}/
+        run: aws s3 cp jakesky.zip s3://${AWS_BUCKET}/
