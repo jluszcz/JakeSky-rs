@@ -120,7 +120,7 @@ resource "aws_s3_bucket" "code" {
   bucket = var.code_bucket
 }
 
-data "aws_iam_policy_document" "github_deploy" {
+data "aws_iam_policy_document" "github" {
   statement {
     actions = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.code.arn}/jakesky.zip"]
@@ -129,7 +129,7 @@ data "aws_iam_policy_document" "github_deploy" {
 
 resource "aws_iam_policy" "github" {
   name   = "jakesky.github"
-  policy = data.aws_iam_policy_document.github_deploy.json
+  policy = data.aws_iam_policy_document.github.json
 }
 
 resource "aws_iam_role" "github" {
@@ -155,4 +155,9 @@ resource "aws_iam_role" "github" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "github" {
+  role       = aws_iam_role.github.name
+  policy_arn = aws_iam_policy.github.arn
 }
