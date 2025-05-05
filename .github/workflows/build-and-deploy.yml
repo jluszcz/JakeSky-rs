@@ -67,7 +67,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github.jakesky
           role-session-name: github-deploy
-          aws-region: $AWS_DEFAULT_REGION
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Deploy Lambda
         env:
