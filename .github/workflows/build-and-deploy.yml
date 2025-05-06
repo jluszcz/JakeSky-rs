@@ -10,8 +10,11 @@ on:
       - 'Cargo**'
       - 'src/**/*.rs'
 
+env:
+  PROJECT: jakesky
+
 jobs:
-  build-and-deploy:
+  build-and-package:
     runs-on: ubuntu-24.04-arm
 
     permissions:
@@ -19,9 +22,7 @@ jobs:
       contents: read
 
     env:
-      AWS_DEFAULT_REGION: us-east-1
       BUILD_TARGET: aarch64-unknown-linux-musl
-      PROJECT: jakesky
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +54,31 @@ jobs:
           cargo build --release --target ${{ env.BUILD_TARGET }}
           cp target/${{ env.BUILD_TARGET }}/release/lambda bootstrap
           zip -j ${{ env.PROJECT }}.zip bootstrap
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: ${{ env.PROJECT }}.zip
+          retention-days: 1
+
+  deploy:
+    needs: build-and-package
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Download Package
+        uses: actions/download-artifact@v4
+        with:
+          name: package
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
