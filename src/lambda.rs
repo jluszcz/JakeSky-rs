@@ -1,11 +1,13 @@
 use jakesky::weather::WeatherProvider;
 use jakesky::{alexa, set_up_logger};
 use lambda_runtime::{LambdaEvent, service_fn};
-use log::debug;
+use log::{debug, info};
 use serde_json::{Value, json};
 use std::{env, error::Error};
 
 type LambdaError = Box<dyn Error + Send + Sync + 'static>;
+
+const RUSTC_VERSION: &str = env!("RUSTC_VERSION");
 
 #[tokio::main]
 async fn main() -> Result<(), LambdaError> {
@@ -29,6 +31,8 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         debug!("Warmup only, returning early");
         return Ok(json!({}));
     }
+
+    info!("rustc version: {RUSTC_VERSION}");
 
     let api_key = env::var("JAKESKY_API_KEY")?;
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
