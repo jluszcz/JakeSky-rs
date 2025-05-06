@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
     paths:
       - '.github/workflows/**'
       - 'Cargo**'
@@ -20,6 +21,7 @@ jobs:
     env:
       AWS_DEFAULT_REGION: us-east-1
       BUILD_TARGET: aarch64-unknown-linux-musl
+      PROJECT: jakesky
 
     steps:
       - uses: actions/checkout@v4
@@ -49,16 +51,16 @@ jobs:
       - name: Package
         run: |
           cp target/${{ env.BUILD_TARGET }}/release/lambda bootstrap
-          zip -j jakesky.zip bootstrap
+          zip -j ${{ env.PROJECT }}.zip bootstrap
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/jakesky.github
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.PROJECT }}.github
           role-session-name: github-deploy
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Deploy Lambda
         env:
           AWS_BUCKET: ${{ secrets.AWS_BUCKET }}
-        run: aws s3 cp jakesky.zip s3://${AWS_BUCKET}/
+        run: aws s3 cp ${{ env.PROJECT }}.zip s3://${AWS_BUCKET}/
