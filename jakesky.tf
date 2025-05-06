@@ -74,7 +74,7 @@ resource "aws_iam_role_policy_attachment" "jakesky_role_attachment" {
 
 resource "aws_lambda_function" "jakesky" {
   function_name = "jakesky"
-  s3_bucket     = var.code_bucket
+  s3_bucket     = "${data.aws_s3_bucket.code_bucket.bucket}"
   s3_key        = "jakesky.zip"
   role          = aws_iam_role.jakesky_role.arn
   architectures = ["arm64"]
@@ -116,14 +116,14 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-resource "aws_s3_bucket" "code" {
+data "aws_s3_bucket" "code_bucket" {
   bucket = var.code_bucket
 }
 
 data "aws_iam_policy_document" "github" {
   statement {
     actions = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.code.arn}/jakesky.zip"]
+    resources = ["${data.aws_s3_bucket.code_bucket.arn}/jakesky.zip"]
   }
 }
 
