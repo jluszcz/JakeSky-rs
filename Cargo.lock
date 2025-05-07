@@ -785,9 +785,9 @@ dependencies = [
  "clap",
  "fern",
  "lambda_runtime",
+ "lambda_utils",
  "log",
  "reqwest",
- "rustc_version",
  "serde",
  "serde_json",
  "tokio",
@@ -850,6 +850,18 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "lambda_utils"
+version = "0.1.0"
+source = "git+ssh://git@github.com/jluszcz/LambdaUtils-rs#dfa9b44f0847cc255bb2237a10d0b7bdca640926"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "fern",
+ "log",
+ "rustc_version",
 ]
 
 [[package]]

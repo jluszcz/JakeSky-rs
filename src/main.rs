@@ -3,7 +3,8 @@ use std::str::FromStr;
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
 use jakesky::weather::WeatherProvider;
-use jakesky::{alexa, set_up_logger};
+use jakesky::{APP_NAME, alexa};
+use lambda_utils::set_up_logger;
 use log::debug;
 
 #[derive(Debug)]
@@ -107,7 +108,7 @@ fn parse_args() -> Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = parse_args();
-    set_up_logger(module_path!(), args.verbose)?;
+    set_up_logger(APP_NAME, module_path!(), args.verbose)?;
     debug!("{:?}", args);
 
     let weather = args
