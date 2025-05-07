@@ -2,7 +2,7 @@ use jakesky::weather::WeatherProvider;
 use jakesky::{APP_NAME, alexa};
 use lambda_runtime::{LambdaEvent, service_fn};
 use lambda_utils::set_up_logger;
-use log::{debug, info};
+use log::debug;
 use serde_json::{Value, json};
 use std::{env, error::Error};
 

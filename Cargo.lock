@@ -855,7 +855,7 @@ dependencies = [
 [[package]]
 name = "lambda_utils"
 version = "0.1.0"
-source = "git+ssh://git@github.com/jluszcz/LambdaUtils-rs#dfa9b44f0847cc255bb2237a10d0b7bdca640926"
+source = "git+https://github.com//jluszcz/LambdaUtils-rs#dfa9b44f0847cc255bb2237a10d0b7bdca640926"
 dependencies = [
  "anyhow",
  "chrono",
