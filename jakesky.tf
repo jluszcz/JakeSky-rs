@@ -40,13 +40,6 @@ resource "aws_lambda_permission" "jakesky_allow_cloudwatch" {
   source_arn    = aws_cloudwatch_event_rule.jakesky_schedule.arn
 }
 
-data "aws_iam_policy_document" "jakesky_role_policy_document" {
-  statement {
-    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:Describe*"]
-    resources = ["arn:aws:logs:${var.aws_region}:${var.aws_acct_id}:*"]
-  }
-}
-
 data "aws_iam_policy_document" "jakesky_assume_role_policy_document" {
   statement {
     principals {
@@ -57,26 +50,43 @@ data "aws_iam_policy_document" "jakesky_assume_role_policy_document" {
   }
 }
 
-resource "aws_iam_policy" "jakesky_role_policy" {
-  name   = "jakesky.lambda"
-  policy = data.aws_iam_policy_document.jakesky_role_policy_document.json
-}
-
-resource "aws_iam_role" "jakesky_role" {
+resource "aws_iam_role" "lambda" {
   name               = "jakesky.lambda"
   assume_role_policy = data.aws_iam_policy_document.jakesky_assume_role_policy_document.json
 }
 
-resource "aws_iam_role_policy_attachment" "jakesky_role_attachment" {
-  role       = aws_iam_role.jakesky_role.name
-  policy_arn = aws_iam_policy.jakesky_role_policy.arn
+data "aws_iam_policy_document" "cw" {
+  statement {
+    actions = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values = ["jakesky"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "cw" {
+  name   = "jakesky.cw"
+  policy = data.aws_iam_policy_document.cw.json
+}
+
+resource "aws_iam_role_policy_attachment" "cw" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = aws_iam_policy.cw.arn
+}
+
+resource "aws_iam_role_policy_attachment" "basic_execution_role_attachment" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_lambda_function" "jakesky" {
   function_name = "jakesky"
   s3_bucket     = "${data.aws_s3_bucket.code_bucket.bucket}"
   s3_key        = "jakesky.zip"
-  role          = aws_iam_role.jakesky_role.arn
+  role          = aws_iam_role.lambda.arn
   architectures = ["arm64"]
   runtime       = "provided.al2023"
   handler       = "ignored"
