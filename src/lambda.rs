@@ -24,7 +24,7 @@ fn is_warmup_event(event: Value) -> bool {
 }
 
 async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
-    set_up_logger(APP_NAME, module_path!(), true)?;
+    set_up_logger(APP_NAME, module_path!(), false)?;
 
     if is_warmup_event(event.payload) {
         debug!("Warmup only, returning early");
