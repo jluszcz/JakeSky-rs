@@ -1521,13 +1521,27 @@ dependencies = [
  "chrono-tz",
  "clap",
  "fern",
+ "jluszcz_rust_utils",
  "lambda_runtime",
- "lambda_utils",
  "log",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "jluszcz_rust_utils"
+version = "0.1.0"
+source = "git+https://github.com//jluszcz/rust-utils#39c9a0edd6757299d057b105c8a5362ad99ffe3a"
+dependencies = [
+ "anyhow",
+ "aws-config",
+ "aws-sdk-cloudwatch",
+ "chrono",
+ "fern",
+ "log",
+ "rustc_version",
 ]
 
 [[package]]
@@ -1597,20 +1611,6 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "lambda_utils"
-version = "0.1.0"
-source = "git+https://github.com//jluszcz/LambdaUtils-rs#a0017388254877e63efe0030b05cc36a2313d650"
-dependencies = [
- "anyhow",
- "aws-config",
- "aws-sdk-cloudwatch",
- "chrono",
- "fern",
- "log",
- "rustc_version",
 ]
 
 [[package]]

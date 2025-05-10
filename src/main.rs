@@ -1,11 +1,10 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
 use jakesky::weather::WeatherProvider;
 use jakesky::{APP_NAME, alexa};
-use lambda_utils::set_up_logger;
+use jluszcz_rust_utils::set_up_logger;
 use log::debug;
+use std::str::FromStr;
 
 #[derive(Debug)]
 struct Args {

@@ -1,7 +1,7 @@
 use jakesky::weather::WeatherProvider;
 use jakesky::{APP_NAME, alexa};
+use jluszcz_rust_utils::lambda;
 use lambda_runtime::{LambdaEvent, service_fn};
-use lambda_utils::lambda_init;
 use serde_json::{Value, json};
 use std::{env, error::Error};
 
@@ -27,7 +27,7 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
         return Ok(json!({}));
     }
 
-    lambda_init(APP_NAME, module_path!(), false).await?;
+    lambda::init(APP_NAME, module_path!(), false).await?;
 
     let api_key = env::var("JAKESKY_API_KEY")?;
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
