@@ -133,7 +133,7 @@ where
         .text()
         .await?;
 
-    trace!("{}", response);
+    trace!("{response}");
 
     Ok(response)
 }
@@ -143,7 +143,7 @@ async fn query_location(api_key: &str, latitude: f64, longitude: f64) -> Result<
         "http://dataservice.accuweather.com/locations/v1/cities/geoposition/search",
         &[
             ("apikey", api_key),
-            ("q", &format!("{},{}", latitude, longitude)),
+            ("q", &format!("{latitude},{longitude}")),
         ],
     )
     .await

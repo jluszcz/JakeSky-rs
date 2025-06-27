@@ -73,7 +73,7 @@ impl WeatherProvider {
                 open_weather::get_weather(use_cache, api_key, latitude, longitude).await
             }
         }?;
-        debug!("{:?}", weather);
+        debug!("{weather:?}");
 
         let now = Utc::now().with_timezone(&weather.timezone);
 
@@ -95,7 +95,7 @@ impl WeatherProvider {
             }
 
             if hours_of_interest.contains(&hourly_weather.timestamp.hour()) {
-                debug!("{:?}", hourly_weather);
+                debug!("{hourly_weather:?}");
                 filtered.push(hourly_weather);
             }
         }
@@ -149,7 +149,7 @@ where
 
 async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>> {
     if use_cache && cache_path.exists() {
-        debug!("Reading cache file: {:?}", cache_path);
+        debug!("Reading cache file: {cache_path:?}");
         Ok(Some(fs::read_to_string(cache_path).await?))
     } else {
         Ok(None)
@@ -158,7 +158,7 @@ async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>
 
 async fn try_write_cache(use_cache: bool, cache_path: &Path, response: &str) -> Result<()> {
     if use_cache {
-        debug!("Writing response to cache file: {:?}", cache_path);
+        debug!("Writing response to cache file: {cache_path:?}");
 
         let mut file = OpenOptions::new()
             .write(true)
@@ -193,7 +193,7 @@ pub fn hours_of_interest(
         }
     }
 
-    debug!("Hours of Interest: {:?}", hours);
+    debug!("Hours of Interest: {hours:?}");
 
     hours
 }

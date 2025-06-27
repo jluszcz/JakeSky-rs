@@ -125,10 +125,8 @@ pub async fn get_weather(
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
-    let cache_path = weather::get_cache_path(
-        WEATHER_PROVIDER,
-        &format!("{:.1}_{:.1}", latitude, longitude),
-    );
+    let cache_path =
+        weather::get_cache_path(WEATHER_PROVIDER, &format!("{latitude:.1}_{longitude:.1}"));
 
     let response = weather::try_cached_query(use_cache, &cache_path, || {
         query(api_key, latitude, longitude)
@@ -174,7 +172,7 @@ async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
         .text()
         .await?;
 
-    trace!("{}", response);
+    trace!("{response}");
 
     Ok(response)
 }

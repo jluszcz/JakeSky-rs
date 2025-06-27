@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 pub fn forecast(weather: Vec<Weather>) -> Result<Value> {
     let forecast = to_forecast(weather)?.join(" ");
 
-    info!(r#"Forecast: "{}""#, forecast);
+    info!(r#"Forecast: "{forecast}""#);
 
     Ok(json!({
         "version": "1.0",

@@ -108,7 +108,7 @@ fn parse_args() -> Args {
 async fn main() -> Result<()> {
     let args = parse_args();
     set_up_logger(APP_NAME, module_path!(), args.verbose)?;
-    debug!("{:?}", args);
+    debug!("{args:?}");
 
     let weather = args
         .provider
