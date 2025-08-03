@@ -1534,6 +1534,7 @@ dependencies = [
  "jluszcz_rust_utils",
  "lambda_runtime",
  "log",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",

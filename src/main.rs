@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
-use jakesky::weather::WeatherProvider;
+use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::set_up_logger;
 use log::debug;
@@ -11,7 +11,7 @@ struct Args {
     verbose: bool,
     use_cache: bool,
     provider: WeatherProvider,
-    api_key: String,
+    api_key: ApiKey,
     latitude: f64,
     longitude: f64,
 }
@@ -84,10 +84,13 @@ fn parse_args() -> Args {
 
     let longitude = *matches.get_one::<f64>("longitude").unwrap();
 
-    let api_key = matches
-        .get_one::<String>("api-key")
-        .map(|l| l.into())
-        .unwrap();
+    let api_key = ApiKey::new(
+        matches
+            .get_one::<String>("api-key")
+            .map(|l| l.clone())
+            .unwrap(),
+    )
+    .unwrap();
 
     let provider = matches
         .get_one::<String>("provider")
@@ -109,6 +112,9 @@ async fn main() -> Result<()> {
     let args = parse_args();
     set_up_logger(APP_NAME, module_path!(), args.verbose)?;
     debug!("{args:?}");
+
+    // Validate coordinates early for better error messages
+    validate_coordinates(args.latitude, args.longitude)?;
 
     let weather = args
         .provider

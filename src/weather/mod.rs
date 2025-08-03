@@ -1,8 +1,9 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use log::{debug, trace};
 use std::env;
+use std::fmt;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -11,6 +12,43 @@ use tokio::io::AsyncWriteExt;
 
 pub mod accu_weather;
 pub mod open_weather;
+
+/// A secure wrapper for API keys that prevents accidental logging
+#[derive(Clone)]
+pub struct ApiKey(String);
+
+impl ApiKey {
+    /// Creates a new ApiKey after basic validation
+    pub fn new(key: impl Into<String>) -> Result<Self> {
+        let key = key.into();
+        if key.trim().is_empty() {
+            return Err(anyhow!("API key cannot be empty"));
+        }
+        if key.len() < 8 {
+            return Err(anyhow!(
+                "API key appears to be too short (minimum 8 characters)"
+            ));
+        }
+        Ok(Self(key))
+    }
+
+    /// Returns the API key as a string slice for use in API calls
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Debug for ApiKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ApiKey([REDACTED])")
+    }
+}
+
+impl fmt::Display for ApiKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[REDACTED API KEY]")
+    }
+}
 
 #[derive(Debug)]
 pub struct Weather {
@@ -61,16 +99,20 @@ impl WeatherProvider {
     pub async fn get_weather(
         &self,
         use_cache: bool,
-        api_key: &str,
+        api_key: &ApiKey,
         latitude: f64,
         longitude: f64,
     ) -> Result<Vec<Weather>> {
+        // Validate coordinates before making API calls
+        validate_coordinates(latitude, longitude)
+            .with_context(|| format!("Invalid coordinates: lat={}, lon={}", latitude, longitude))?;
+
         let weather = match self {
             Self::AccuWeather => {
-                accu_weather::get_weather(use_cache, api_key, latitude, longitude).await
+                accu_weather::get_weather(use_cache, api_key.as_str(), latitude, longitude).await
             }
             Self::OpenWeather => {
-                open_weather::get_weather(use_cache, api_key, latitude, longitude).await
+                open_weather::get_weather(use_cache, api_key.as_str(), latitude, longitude).await
             }
         }?;
         debug!("{weather:?}");
@@ -120,13 +162,34 @@ impl FromStr for WeatherProvider {
 
 pub fn get_cache_path(weather_provider: &WeatherProvider, token: &str) -> PathBuf {
     let mut path = env::temp_dir();
+    // Sanitize token to remove special characters that could cause filesystem issues
+    let sanitized_token = sanitize_filename(token);
     path.push(format!(
-        "{}-{}-{token}.json",
+        "{}-{}-{}.json",
         weather_provider.id(),
         Utc::now().date_naive().format("%Y%m%d"),
+        sanitized_token
     ));
 
     path
+}
+
+fn sanitize_filename(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| match c {
+            // Replace potentially problematic characters with underscores
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            // Keep dots for negative numbers but replace with 'n' prefix for clarity
+            '.' => 'd',
+            // Replace minus sign with 'n' for negative coordinates
+            '-' => 'n',
+            // Keep alphanumeric characters as-is
+            c if c.is_alphanumeric() => c,
+            // Replace any other special characters with underscores
+            _ => '_',
+        })
+        .collect()
 }
 
 pub async fn try_cached_query<F>(
@@ -150,7 +213,9 @@ where
 async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>> {
     if use_cache && cache_path.exists() {
         debug!("Reading cache file: {cache_path:?}");
-        Ok(Some(fs::read_to_string(cache_path).await?))
+        Ok(Some(fs::read_to_string(cache_path).await.with_context(
+            || format!("Failed to read cache file: {:?}", cache_path),
+        )?))
     } else {
         Ok(None)
     }
@@ -165,9 +230,12 @@ async fn try_write_cache(use_cache: bool, cache_path: &Path, response: &str) -> 
             .create(true)
             .truncate(true)
             .open(cache_path)
-            .await?;
+            .await
+            .with_context(|| format!("Failed to create or open cache file: {:?}", cache_path))?;
 
-        file.write_all(response.as_bytes()).await?;
+        file.write_all(response.as_bytes())
+            .await
+            .with_context(|| format!("Failed to write data to cache file: {:?}", cache_path))?;
     }
 
     Ok(())
@@ -196,4 +264,33 @@ pub fn hours_of_interest(
     debug!("Hours of Interest: {hours:?}");
 
     hours
+}
+
+/// Validates that latitude is within valid bounds (-90.0 to 90.0)
+pub fn validate_latitude(latitude: f64) -> Result<()> {
+    if !(-90.0..=90.0).contains(&latitude) {
+        return Err(anyhow!(
+            "Latitude must be between -90.0 and 90.0 degrees, got: {}",
+            latitude
+        ));
+    }
+    Ok(())
+}
+
+/// Validates that longitude is within valid bounds (-180.0 to 180.0)
+pub fn validate_longitude(longitude: f64) -> Result<()> {
+    if !(-180.0..=180.0).contains(&longitude) {
+        return Err(anyhow!(
+            "Longitude must be between -180.0 and 180.0 degrees, got: {}",
+            longitude
+        ));
+    }
+    Ok(())
+}
+
+/// Validates both latitude and longitude coordinates
+pub fn validate_coordinates(latitude: f64, longitude: f64) -> Result<()> {
+    validate_latitude(latitude).with_context(|| "Invalid latitude coordinate")?;
+    validate_longitude(longitude).with_context(|| "Invalid longitude coordinate")?;
+    Ok(())
 }
