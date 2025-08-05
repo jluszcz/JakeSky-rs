@@ -2,11 +2,14 @@ use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use log::{debug, trace};
+use reqwest::Client;
 use std::env;
 use std::fmt;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
@@ -105,7 +108,7 @@ impl WeatherProvider {
     ) -> Result<Vec<Weather>> {
         // Validate coordinates before making API calls
         validate_coordinates(latitude, longitude)
-            .with_context(|| format!("Invalid coordinates: lat={}, lon={}", latitude, longitude))?;
+            .with_context(|| format!("Invalid coordinates: lat={latitude}, lon={longitude}"))?;
 
         let weather = match self {
             Self::AccuWeather => {
@@ -214,7 +217,7 @@ async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>
     if use_cache && cache_path.exists() {
         debug!("Reading cache file: {cache_path:?}");
         Ok(Some(fs::read_to_string(cache_path).await.with_context(
-            || format!("Failed to read cache file: {:?}", cache_path),
+            || format!("Failed to read cache file: {cache_path:?}"),
         )?))
     } else {
         Ok(None)
@@ -231,11 +234,11 @@ async fn try_write_cache(use_cache: bool, cache_path: &Path, response: &str) -> 
             .truncate(true)
             .open(cache_path)
             .await
-            .with_context(|| format!("Failed to create or open cache file: {:?}", cache_path))?;
+            .with_context(|| format!("Failed to create or open cache file: {cache_path:?}"))?;
 
         file.write_all(response.as_bytes())
             .await
-            .with_context(|| format!("Failed to write data to cache file: {:?}", cache_path))?;
+            .with_context(|| format!("Failed to write data to cache file: {cache_path:?}"))?;
     }
 
     Ok(())
@@ -293,4 +296,20 @@ pub fn validate_coordinates(latitude: f64, longitude: f64) -> Result<()> {
     validate_latitude(latitude).with_context(|| "Invalid latitude coordinate")?;
     validate_longitude(longitude).with_context(|| "Invalid longitude coordinate")?;
     Ok(())
+}
+
+// Shared HTTP client with optimized configuration
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
+
+pub fn http_client() -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        Client::builder()
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
+            .pool_idle_timeout(Duration::from_secs(90))
+            .pool_max_idle_per_host(10)
+            .gzip(true)
+            .build()
+            .expect("Failed to create HTTP client")
+    })
 }

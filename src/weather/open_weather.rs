@@ -5,26 +5,13 @@ use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use log::{debug, trace};
-use once_cell::sync::Lazy;
-use reqwest::{Client, Method};
+use reqwest::Method;
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use std::time::Duration;
 
 const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::OpenWeather;
-
-// Shared HTTP client with optimized configuration
-static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
-    Client::builder()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .pool_idle_timeout(Duration::from_secs(90))
-        .pool_max_idle_per_host(10)
-        .gzip(true)
-        .build()
-        .expect("Failed to create HTTP client")
-});
 
 #[derive(Deserialize, Debug)]
 struct Response {
@@ -124,10 +111,7 @@ impl TryFrom<Response> for Vec<Weather> {
         for (index, hourly_weather) in response.hourly.into_iter().enumerate() {
             let hourly_weather =
                 Weather::try_from(&(timezone, hourly_weather)).with_context(|| {
-                    format!(
-                        "Failed to parse hourly weather entry {} from OpenWeather",
-                        index
-                    )
+                    format!("Failed to parse hourly weather entry {index} from OpenWeather")
                 })?;
 
             if hourly_weather.timestamp.date_naive() > now.date_naive() {
@@ -153,10 +137,8 @@ pub async fn get_weather(
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
-    let cache_path = weather::get_cache_path(
-        WEATHER_PROVIDER,
-        &format!("{:.1}_{:.1}", latitude, longitude),
-    );
+    let cache_path =
+        weather::get_cache_path(WEATHER_PROVIDER, &format!("{latitude:.1}_{longitude:.1}"));
 
     let response = weather::try_cached_query(use_cache, &cache_path, || {
         query(api_key, latitude, longitude)
@@ -164,8 +146,7 @@ pub async fn get_weather(
     .await
     .with_context(|| {
         format!(
-            "Failed to get weather data from OpenWeather for coordinates {}, {}",
-            latitude, longitude
+            "Failed to get weather data from OpenWeather for coordinates {latitude}, {longitude}"
         )
     })?;
 
@@ -188,7 +169,7 @@ async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
     // Since we only care about the current and hourly forecast for specific times, exclude some of the data in the response.
     let response = retry_policy
         .retry(|| {
-            HTTP_CLIENT
+            weather::http_client()
                 .request(
                     Method::GET,
                     "https://api.openweathermap.org/data/3.0/onecall",

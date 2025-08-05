@@ -5,25 +5,12 @@ use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use log::trace;
-use once_cell::sync::Lazy;
-use reqwest::{Client, Method};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
 
 const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::AccuWeather;
-
-// Shared HTTP client with optimized configuration
-static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
-    Client::builder()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .pool_idle_timeout(Duration::from_secs(90))
-        .pool_max_idle_per_host(10)
-        .gzip(true)
-        .build()
-        .expect("Failed to create HTTP client")
-});
 
 #[derive(Deserialize, Debug)]
 struct LocationResponse {
@@ -106,10 +93,7 @@ impl TryFrom<(WeatherResponse, &str)> for Weather {
     fn try_from(value: (WeatherResponse, &str)) -> Result<Self, Self::Error> {
         let (weather, timezone) = value;
         let timezone = Tz::from_str(timezone).with_context(|| {
-            format!(
-                "Failed to parse timezone '{}' from AccuWeather forecast response",
-                timezone
-            )
+            format!("Failed to parse timezone '{timezone}' from AccuWeather forecast response")
         })?;
 
         Ok(Self {
@@ -138,7 +122,7 @@ where
 
     let response = retry_policy
         .retry(|| {
-            HTTP_CLIENT
+            weather::http_client()
                 .request(Method::GET, url)
                 .header("Accept", "application/json")
                 .header("Accept-Encoding", "gzip")
@@ -146,9 +130,9 @@ where
                 .send()
         })
         .await
-        .with_context(|| format!("Failed to make HTTP request to {}", url))?
+        .with_context(|| format!("Failed to make HTTP request to {url}"))?
         .error_for_status()
-        .with_context(|| format!("HTTP request failed for {}", url))?
+        .with_context(|| format!("HTTP request failed for {url}"))?
         .text()
         .await
         .with_context(|| "Failed to read response body")?;
@@ -191,26 +175,23 @@ pub async fn get_weather(
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
-    let token_suffix = format!("{:.1}_{:.1}", latitude, longitude);
+    let token_suffix = format!("{latitude:.1}_{longitude:.1}");
 
     let location_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("location_{}", token_suffix));
+        weather::get_cache_path(WEATHER_PROVIDER, &format!("location_{token_suffix}"));
 
     let weather_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("weather_{}", token_suffix));
+        weather::get_cache_path(WEATHER_PROVIDER, &format!("weather_{token_suffix}"));
 
     let current_conditions_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("curr_{}", token_suffix));
+        weather::get_cache_path(WEATHER_PROVIDER, &format!("curr_{token_suffix}"));
 
     let location = weather::try_cached_query(use_cache, &location_cache_path, || {
         query_location(api_key, latitude, longitude)
     })
     .await
     .with_context(|| {
-        format!(
-            "Failed to get location data for coordinates {}, {}",
-            latitude, longitude
-        )
+        format!("Failed to get location data for coordinates {latitude}, {longitude}")
     })?;
 
     let location: LocationResponse = serde_json::from_str(&location)
@@ -268,7 +249,7 @@ fn parse_weather(response: &str, timezone: &str) -> Result<Vec<Weather>> {
     let mut weather = Vec::new();
     for (index, w) in response.into_iter().enumerate() {
         weather.push((w, timezone).try_into().with_context(|| {
-            format!("Failed to convert weather entry {} from AccuWeather", index)
+            format!("Failed to convert weather entry {index} from AccuWeather")
         })?);
     }
 

@@ -84,13 +84,7 @@ fn parse_args() -> Args {
 
     let longitude = *matches.get_one::<f64>("longitude").unwrap();
 
-    let api_key = ApiKey::new(
-        matches
-            .get_one::<String>("api-key")
-            .map(|l| l.clone())
-            .unwrap(),
-    )
-    .unwrap();
+    let api_key = ApiKey::new(matches.get_one::<String>("api-key").cloned().unwrap()).unwrap();
 
     let provider = matches
         .get_one::<String>("provider")
