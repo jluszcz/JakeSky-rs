@@ -1,4 +1,4 @@
-use jakesky::weather::WeatherProvider;
+use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::lambda;
 use lambda_runtime::{LambdaEvent, service_fn};
@@ -29,9 +29,12 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
 
     lambda::init(APP_NAME, module_path!(), false).await?;
 
-    let api_key = env::var("JAKESKY_API_KEY")?;
+    let api_key = ApiKey::new(env::var("JAKESKY_API_KEY")?)?;
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
+
+    // Validate coordinates
+    validate_coordinates(latitude, longitude)?;
 
     let weather = WeatherProvider::AccuWeather
         .get_weather(false, &api_key, latitude, longitude)
