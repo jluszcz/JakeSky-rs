@@ -41,15 +41,15 @@ fn to_forecast(weather: Vec<Weather>) -> Result<Vec<String>> {
         ));
     }
 
-    if weather.len() > 1 {
-        if let Some(w) = weather.last() {
-            forecast.push(format!(
-                "{} {} it will be {}.",
-                if weather.len() > 2 { "And at" } else { "At" },
-                speakable_timestamp(&w.timestamp),
-                speakable_weather(w),
-            ));
-        }
+    if weather.len() > 1
+        && let Some(w) = weather.last()
+    {
+        forecast.push(format!(
+            "{} {} it will be {}.",
+            if weather.len() > 2 { "And at" } else { "At" },
+            speakable_timestamp(&w.timestamp),
+            speakable_weather(w),
+        ));
     }
 
     Ok(forecast)
