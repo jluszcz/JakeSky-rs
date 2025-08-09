@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-JakeSky-rs is a Rust weather service that provides voice-friendly weather forecasts for Amazon Alexa. It supports multiple weather providers (AccuWeather and OpenWeather) and can run both as a CLI application and AWS Lambda function.
+JakeSky-rs is a Rust weather service that provides voice-friendly weather forecasts for Amazon Alexa. It supports multiple weather
+providers (AccuWeather and OpenWeather) and can run both as a CLI application and AWS Lambda function.
 
 ## Common Commands
 
@@ -15,14 +16,6 @@ JakeSky-rs is a Rust weather service that provides voice-friendly weather foreca
 - `cargo test` - Run all tests
 - `cargo check` - Check for compilation errors without building
 - `cargo clippy -- -D warnings` - Run Rust linter for code quality checks
-
-### Making Changes
-
-After making any changes, run the build/test commands above and make sure they pass, correcting any errors.
-
-When fixing test failures, you MUST fix the test rather than remove tests. When in doubt, ask.
-
-Before committing code, run `pre-commit run` to verify that no pre-commit hooks will fail.
 
 ### Running the Application
 - `cargo run --bin main -- --help` - Show CLI help
@@ -57,21 +50,3 @@ Before committing code, run `pre-commit run` to verify that no pre-commit hooks 
 - `JAKESKY_API_KEY` - Weather provider API key
 - `JAKESKY_LATITUDE` - Location latitude
 - `JAKESKY_LONGITUDE` - Location longitude
-
-## Development Setup
-
-The project uses pre-commit hooks for code quality:
-- `cargo fmt --check` for formatting
-- Various file checks (YAML, TOML, trailing whitespace, etc.)
-- AWS credentials detection
-
-Install pre-commit hooks: `pre-commit install`
-
-## Testing
-
-Tests are embedded in modules using `#[cfg(test)]`. Key test files:
-- `src/alexa.rs` - Forecast formatting tests
-- `src/weather/mod.rs` - Core weather filtering logic tests
-- Provider-specific test modules in weather providers
-
-Run tests with `cargo test` or target-specific `cargo test --target aarch64-unknown-linux-musl`.
