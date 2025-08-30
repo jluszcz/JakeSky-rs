@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build and Test"]
+
+    types:
+      - completed
+
+    branches:
+      - main
+
+env:
+  PROJECT: jakesky
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Download Package
+        uses: actions/download-artifact@v4
+        with:
+          name: package
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.PROJECT }}.github
+          role-session-name: github-deploy
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Deploy Lambda
+        env:
+          AWS_BUCKET: ${{ secrets.AWS_BUCKET }}
+        run: aws s3 cp ${{ env.PROJECT }}.zip s3://${AWS_BUCKET}/
