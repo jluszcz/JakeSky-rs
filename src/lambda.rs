@@ -36,7 +36,7 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
     // Validate coordinates
     validate_coordinates(latitude, longitude)?;
 
-    let weather = WeatherProvider::AccuWeather
+    let weather = WeatherProvider::OpenWeather
         .get_weather(false, &api_key, latitude, longitude)
         .await?;
 
