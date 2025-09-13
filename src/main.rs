@@ -2,13 +2,13 @@ use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
 use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
-use jluszcz_rust_utils::set_up_logger;
+use jluszcz_rust_utils::{Verbosity, set_up_logger};
 use log::debug;
 use std::str::FromStr;
 
 #[derive(Debug)]
 struct Args {
-    verbosity: u8,
+    verbosity: Verbosity,
     use_cache: bool,
     provider: WeatherProvider,
     api_key: ApiKey,
@@ -76,7 +76,7 @@ fn parse_args() -> Args {
         )
         .get_matches();
 
-    let verbosity = matches.get_count("debug");
+    let verbosity = matches.get_count("debug").into();
 
     let use_cache = matches.get_flag("use-cache");
 
@@ -104,7 +104,7 @@ fn parse_args() -> Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = parse_args();
-    set_up_logger(APP_NAME, module_path!(), args.verbosity.into())?;
+    set_up_logger(APP_NAME, module_path!(), args.verbosity)?;
     debug!("{args:?}");
 
     // Validate coordinates early for better error messages
@@ -182,7 +182,7 @@ mod tests {
     fn parse_args_from(args: &[&str]) -> Result<Args, clap::Error> {
         let matches = create_command().try_get_matches_from(args)?;
 
-        let verbosity = matches.get_count("debug");
+        let verbosity = matches.get_count("debug").into();
         let use_cache = matches.get_flag("use-cache");
         let latitude = *matches.get_one::<f64>("latitude").unwrap();
         let longitude = *matches.get_one::<f64>("longitude").unwrap();
@@ -215,7 +215,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(args.verbosity, 0);
+        assert!(matches!(args.verbosity, Verbosity::Info));
         assert!(!args.use_cache);
         assert_eq!(args.provider.id(), WeatherProvider::OpenWeather.id());
         assert_eq!(args.latitude, 40.7128);
@@ -236,7 +236,7 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(args.verbosity, 2);
+        assert!(matches!(args.verbosity, Verbosity::Trace));
     }
 
     #[test]
