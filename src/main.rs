@@ -21,7 +21,7 @@ fn parse_args() -> Args {
         .version("0.1")
         .author("Jacob Luszcz")
         .arg(
-            Arg::new("debug")
+            Arg::new("verbosity")
                 .short('v')
                 .long("debug")
                 .action(ArgAction::Count)
@@ -130,9 +130,8 @@ mod tests {
             .version("0.1")
             .author("Jacob Luszcz")
             .arg(
-                Arg::new("debug")
+                Arg::new("verbosity")
                     .short('v')
-                    .long("debug")
                     .action(ArgAction::Count)
                     .help("Increase verbosity (-v for debug, -vv for trace; max useful: -vv)"),
             )
@@ -182,7 +181,7 @@ mod tests {
     fn parse_args_from(args: &[&str]) -> Result<Args, clap::Error> {
         let matches = create_command().try_get_matches_from(args)?;
 
-        let verbosity = matches.get_count("debug").into();
+        let verbosity = matches.get_count("verbosity").into();
         let use_cache = matches.get_flag("use-cache");
         let latitude = *matches.get_one::<f64>("latitude").unwrap();
         let longitude = *matches.get_one::<f64>("longitude").unwrap();
