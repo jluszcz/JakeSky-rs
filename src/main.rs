@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 #[derive(Debug)]
 struct Args {
-    verbose: bool,
+    verbosity: u8,
     use_cache: bool,
     provider: WeatherProvider,
     api_key: ApiKey,
@@ -21,11 +21,11 @@ fn parse_args() -> Args {
         .version("0.1")
         .author("Jacob Luszcz")
         .arg(
-            Arg::new("verbose")
+            Arg::new("debug")
                 .short('v')
-                .long("verbose")
-                .action(ArgAction::SetTrue)
-                .help("Verbose mode. Outputs DEBUG and higher log messages."),
+                .long("debug")
+                .action(ArgAction::Count)
+                .help("Increase verbosity (-v for debug, -vv for trace; max useful: -vv)"),
         )
         .arg(
             Arg::new("use-cache")
@@ -76,7 +76,7 @@ fn parse_args() -> Args {
         )
         .get_matches();
 
-    let verbose = matches.get_flag("verbose");
+    let verbosity = matches.get_count("debug");
 
     let use_cache = matches.get_flag("use-cache");
 
@@ -92,7 +92,7 @@ fn parse_args() -> Args {
         .unwrap();
 
     Args {
-        verbose,
+        verbosity,
         use_cache,
         provider,
         api_key,
@@ -104,7 +104,7 @@ fn parse_args() -> Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = parse_args();
-    set_up_logger(APP_NAME, module_path!(), args.verbose)?;
+    set_up_logger(APP_NAME, module_path!(), args.verbosity.into())?;
     debug!("{args:?}");
 
     // Validate coordinates early for better error messages
@@ -118,4 +118,255 @@ async fn main() -> Result<()> {
     alexa::forecast(weather)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::{Arg, ArgAction, Command};
+
+    fn create_command() -> Command {
+        Command::new("JakeSky-rs")
+            .version("0.1")
+            .author("Jacob Luszcz")
+            .arg(
+                Arg::new("debug")
+                    .short('v')
+                    .long("debug")
+                    .action(ArgAction::Count)
+                    .help("Increase verbosity (-v for debug, -vv for trace; max useful: -vv)"),
+            )
+            .arg(
+                Arg::new("use-cache")
+                    .short('c')
+                    .long("cache")
+                    .action(ArgAction::SetTrue)
+                    .help("Use cached values, if present, rather than querying remote services."),
+            )
+            .arg(
+                Arg::new("latitude")
+                    .long("latitude")
+                    .alias("lat")
+                    .required(true)
+                    .value_parser(clap::value_parser!(f64))
+                    .help("Latitude of location to get weather for"),
+            )
+            .arg(
+                Arg::new("longitude")
+                    .long("longitude")
+                    .alias("long")
+                    .required(true)
+                    .value_parser(clap::value_parser!(f64))
+                    .help("Longitude of location to get weather for"),
+            )
+            .arg(
+                Arg::new("api-key")
+                    .short('a')
+                    .long("api-key")
+                    .required(true)
+                    .help("API key to use with the weather provider"),
+            )
+            .arg(
+                Arg::new("provider")
+                    .short('p')
+                    .long("provider")
+                    .value_parser([
+                        WeatherProvider::AccuWeather.id(),
+                        WeatherProvider::OpenWeather.id(),
+                    ])
+                    .default_value("openweather")
+                    .help("Which weather provider to use"),
+            )
+    }
+
+    fn parse_args_from(args: &[&str]) -> Result<Args, clap::Error> {
+        let matches = create_command().try_get_matches_from(args)?;
+
+        let verbosity = matches.get_count("debug");
+        let use_cache = matches.get_flag("use-cache");
+        let latitude = *matches.get_one::<f64>("latitude").unwrap();
+        let longitude = *matches.get_one::<f64>("longitude").unwrap();
+        let api_key = ApiKey::new(matches.get_one::<String>("api-key").cloned().unwrap()).unwrap();
+        let provider = matches
+            .get_one::<String>("provider")
+            .and_then(|p| WeatherProvider::from_str(p).ok())
+            .unwrap();
+
+        Ok(Args {
+            verbosity,
+            use_cache,
+            provider,
+            api_key,
+            latitude,
+            longitude,
+        })
+    }
+
+    #[test]
+    fn test_parse_args_minimal() {
+        let args = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "74.006",
+            "--api-key",
+            "test-key",
+        ])
+        .unwrap();
+
+        assert_eq!(args.verbosity, 0);
+        assert!(!args.use_cache);
+        assert_eq!(args.provider.id(), WeatherProvider::OpenWeather.id());
+        assert_eq!(args.latitude, 40.7128);
+        assert_eq!(args.longitude, 74.006);
+    }
+
+    #[test]
+    fn test_parse_args_with_verbosity() {
+        let args = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "74.0060",
+            "--api-key",
+            "test-key",
+            "-vv",
+        ])
+        .unwrap();
+
+        assert_eq!(args.verbosity, 2);
+    }
+
+    #[test]
+    fn test_parse_args_with_cache() {
+        let args = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "74.0060",
+            "--api-key",
+            "test-key",
+            "--cache",
+        ])
+        .unwrap();
+
+        assert!(args.use_cache);
+    }
+
+    #[test]
+    fn test_parse_args_with_provider() {
+        let args = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "74.0060",
+            "--api-key",
+            "test-key",
+            "--provider",
+            "accuweather",
+        ])
+        .unwrap();
+
+        assert_eq!(args.provider.id(), WeatherProvider::AccuWeather.id());
+    }
+
+    #[test]
+    fn test_parse_args_with_aliases() {
+        let args = parse_args_from(&[
+            "jakesky",
+            "--lat",
+            "40.7128",
+            "--long",
+            "74.0060",
+            "-a",
+            "test-key",
+            "-p",
+            "openweather",
+        ])
+        .unwrap();
+
+        assert_eq!(args.latitude, 40.7128);
+        assert_eq!(args.longitude, 74.0060);
+        assert_eq!(args.provider.id(), WeatherProvider::OpenWeather.id());
+    }
+
+    #[test]
+    fn test_parse_args_missing_required_latitude() {
+        let result =
+            parse_args_from(&["jakesky", "--longitude", "74.0060", "--api-key", "test-key"]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_missing_required_longitude() {
+        let result =
+            parse_args_from(&["jakesky", "--latitude", "40.7128", "--api-key", "test-key"]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_missing_required_api_key() {
+        let result = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "-74.0060",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_invalid_provider() {
+        let result = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "74.0060",
+            "--api-key",
+            "test-key",
+            "--provider",
+            "invalid-provider",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_invalid_latitude() {
+        let result = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "invalid",
+            "--longitude",
+            "74.0060",
+            "--api-key",
+            "test-key",
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_args_invalid_longitude() {
+        let result = parse_args_from(&[
+            "jakesky",
+            "--latitude",
+            "40.7128",
+            "--longitude",
+            "invalid",
+            "--api-key",
+            "test-key",
+        ]);
+
+        assert!(result.is_err());
+    }
 }
