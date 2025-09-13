@@ -23,7 +23,6 @@ fn parse_args() -> Args {
         .arg(
             Arg::new("verbosity")
                 .short('v')
-                .long("debug")
                 .action(ArgAction::Count)
                 .help("Increase verbosity (-v for debug, -vv for trace; max useful: -vv)"),
         )
