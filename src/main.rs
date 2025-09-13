@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 #[derive(Debug)]
 struct Args {
-    verbose: bool,
+    verbosity: u8,
     use_cache: bool,
     provider: WeatherProvider,
     api_key: ApiKey,
@@ -23,9 +23,9 @@ fn parse_args() -> Args {
         .arg(
             Arg::new("verbose")
                 .short('v')
-                .long("verbose")
-                .action(ArgAction::SetTrue)
-                .help("Verbose mode. Outputs DEBUG and higher log messages."),
+                .long("debug")
+                .action(ArgAction::Count)
+                .help("Increase verbosity (-v for debug, -vv for trace)"),
         )
         .arg(
             Arg::new("use-cache")
@@ -76,7 +76,7 @@ fn parse_args() -> Args {
         )
         .get_matches();
 
-    let verbose = matches.get_flag("verbose");
+    let verbosity = matches.get_count("verbose");
 
     let use_cache = matches.get_flag("use-cache");
 
@@ -92,7 +92,7 @@ fn parse_args() -> Args {
         .unwrap();
 
     Args {
-        verbose,
+        verbosity,
         use_cache,
         provider,
         api_key,
@@ -104,7 +104,7 @@ fn parse_args() -> Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = parse_args();
-    set_up_logger(APP_NAME, module_path!(), args.verbose)?;
+    set_up_logger(APP_NAME, module_path!(), args.verbosity.into())?;
     debug!("{args:?}");
 
     // Validate coordinates early for better error messages
