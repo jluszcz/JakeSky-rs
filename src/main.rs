@@ -110,12 +110,12 @@ async fn main() -> Result<()> {
     // Validate coordinates early for better error messages
     validate_coordinates(args.latitude, args.longitude)?;
 
-    let weather = args
+    let (weather, alerts) = args
         .provider
         .get_weather(args.use_cache, &args.api_key, args.latitude, args.longitude)
         .await?;
 
-    alexa::forecast(weather)?;
+    alexa::forecast(weather, alerts)?;
 
     Ok(())
 }
