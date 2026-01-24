@@ -229,6 +229,7 @@ pub async fn get_weather(
         timezone: current.timestamp.timezone(),
         current,
         upcoming,
+        alerts: Vec::new(), // AccuWeather doesn't provide alerts
     })
 }
 

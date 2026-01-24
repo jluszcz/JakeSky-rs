@@ -1,4 +1,4 @@
-use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
+use crate::weather::{self, Weather, WeatherAlert, WeatherForecast, WeatherProvider};
 use again::RetryPolicy;
 use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
@@ -18,6 +18,22 @@ struct Response {
     timezone: String,
     current: WeatherItem,
     hourly: Vec<WeatherItem>,
+    #[serde(default)]
+    alerts: Vec<Alert>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct Alert {
+    sender_name: String,
+    event: String,
+    #[serde(with = "ts_seconds")]
+    start: DateTime<Utc>,
+    #[serde(with = "ts_seconds")]
+    end: DateTime<Utc>,
+    description: String,
+    #[serde(default)]
+    #[allow(dead_code)] // Part of API response, not currently used
+    tags: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -90,6 +106,32 @@ impl TryFrom<&(Tz, WeatherItem)> for Weather {
     }
 }
 
+fn filter_alerts(alerts: Vec<Alert>, timezone: Tz) -> Vec<WeatherAlert> {
+    let now = Utc::now().with_timezone(&timezone);
+    let three_days_from_now = now + chrono::Duration::days(3);
+
+    alerts
+        .into_iter()
+        .filter_map(|alert| {
+            let start = alert.start.with_timezone(&timezone);
+            let end = alert.end.with_timezone(&timezone);
+
+            // Include alerts that haven't ended and start within 3 days
+            if end > now && start <= three_days_from_now {
+                Some(WeatherAlert {
+                    event: alert.event,
+                    sender_name: alert.sender_name,
+                    start,
+                    end,
+                    description: alert.description,
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 impl TryFrom<Response> for Vec<Weather> {
     type Error = anyhow::Error;
 
@@ -140,7 +182,7 @@ pub async fn get_weather(
     let cache_path =
         weather::get_cache_path(WEATHER_PROVIDER, &format!("{latitude:.1}_{longitude:.1}"));
 
-    let response = weather::try_cached_query(use_cache, &cache_path, || {
+    let response_str = weather::try_cached_query(use_cache, &cache_path, || {
         query(api_key, latitude, longitude)
     })
     .await
@@ -150,13 +192,27 @@ pub async fn get_weather(
         )
     })?;
 
-    let mut weather =
-        parse_weather(response).with_context(|| "Failed to parse OpenWeather API response")?;
+    let response: Response = serde_json::from_str(&response_str)
+        .with_context(|| "Failed to deserialize JSON response from OpenWeather API")?;
+
+    let timezone = Tz::from_str(&response.timezone).with_context(|| {
+        format!(
+            "Failed to parse timezone '{}' from OpenWeather API",
+            response.timezone
+        )
+    })?;
+
+    let alerts = filter_alerts(response.alerts.clone(), timezone);
+
+    let mut weather: Vec<Weather> = response
+        .try_into()
+        .with_context(|| "Failed to parse OpenWeather API response")?;
 
     Ok(WeatherForecast {
         timezone: weather[0].timestamp.timezone(),
         current: weather.remove(0),
         upcoming: weather,
+        alerts,
     })
 }
 
@@ -177,7 +233,7 @@ async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
                 .header("Accept", "application/json")
                 .header("Accept-Encoding", "gzip")
                 .query(&[
-                    ("exclude", "minutely,daily,alerts"),
+                    ("exclude", "minutely,daily"),
                     ("units", "imperial"),
                     ("appid", api_key),
                     ("lat", &format!("{latitude}")),
@@ -196,12 +252,6 @@ async fn query(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
     trace!("{response}");
 
     Ok(response)
-}
-
-fn parse_weather(response: String) -> Result<Vec<Weather>> {
-    let response: Response = serde_json::from_str(&response)
-        .with_context(|| "Failed to deserialize JSON response from OpenWeather API")?;
-    response.try_into()
 }
 
 #[cfg(test)]
