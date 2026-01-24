@@ -216,7 +216,7 @@ mod test {
         let response: Result<Response, _> = serde_json::from_str(EXAMPLE_API_RESPONSE);
         assert!(response.is_ok());
 
-        let weathers: Result<Vec<Weather>> = response.unwrap().try_into();
+        let weathers: Result<Vec<Weather>> = response?.try_into();
         assert!(weathers.is_ok());
 
         Ok(())
