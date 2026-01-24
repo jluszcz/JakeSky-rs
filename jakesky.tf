@@ -7,8 +7,6 @@ terraform {
 }
 
 # Sourced from environment variables named TF_VAR_${VAR_NAME}
-variable "aws_acct_id" {}
-
 variable "jakesky_api_key" {}
 
 variable "jakesky_geocodio_key" {}
@@ -61,12 +59,12 @@ resource "aws_iam_role" "lambda" {
 
 data "aws_iam_policy_document" "cw" {
   statement {
-    actions = ["cloudwatch:PutMetricData"]
+    actions   = ["cloudwatch:PutMetricData"]
     resources = ["*"]
     condition {
       test     = "StringEquals"
       variable = "cloudwatch:namespace"
-      values = ["jakesky"]
+      values   = ["jakesky"]
     }
   }
 }
@@ -88,7 +86,7 @@ resource "aws_iam_role_policy_attachment" "basic_execution_role_attachment" {
 
 resource "aws_lambda_function" "jakesky" {
   function_name = "jakesky"
-  s3_bucket     = "${data.aws_s3_bucket.code_bucket.bucket}"
+  s3_bucket     = data.aws_s3_bucket.code_bucket.bucket
   s3_key        = "jakesky.zip"
   role          = aws_iam_role.lambda.arn
   architectures = ["arm64"]
@@ -132,7 +130,7 @@ data "aws_s3_bucket" "code_bucket" {
 
 data "aws_iam_policy_document" "github" {
   statement {
-    actions = ["s3:PutObject"]
+    actions   = ["s3:PutObject"]
     resources = ["${data.aws_s3_bucket.code_bucket.arn}/jakesky.zip"]
   }
 }
@@ -151,7 +149,7 @@ resource "aws_iam_role" "github" {
       {
         Effect = "Allow",
         Principal = {
-          Federated = "${data.aws_iam_openid_connect_provider.github.arn}"
+          Federated = data.aws_iam_openid_connect_provider.github.arn
         },
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
