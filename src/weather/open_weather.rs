@@ -116,8 +116,8 @@ fn filter_alerts(alerts: Vec<Alert>, timezone: Tz) -> Vec<WeatherAlert> {
             let start = alert.start.with_timezone(&timezone);
             let end = alert.end.with_timezone(&timezone);
 
-            // Include alerts that haven't ended and start within 3 days
-            if end > now && start <= three_days_from_now {
+            // Include alerts that haven't ended, start within 3 days, and have valid duration
+            if end > now && start <= three_days_from_now && start <= end {
                 Some(WeatherAlert {
                     event: alert.event,
                     sender_name: alert.sender_name,
