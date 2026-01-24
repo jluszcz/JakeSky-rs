@@ -75,7 +75,7 @@ fn parse_args() -> Args {
         )
         .get_matches();
 
-    let verbosity = matches.get_count("debug").into();
+    let verbosity = matches.get_count("verbosity").into();
 
     let use_cache = matches.get_flag("use-cache");
 
