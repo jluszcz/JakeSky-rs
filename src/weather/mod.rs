@@ -78,11 +78,21 @@ impl Weather {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct WeatherAlert {
+    pub event: String,
+    pub sender_name: String,
+    pub start: DateTime<Tz>,
+    pub end: DateTime<Tz>,
+    pub description: String,
+}
+
 #[derive(Debug)]
 pub struct WeatherForecast {
     pub current: Weather,
     pub upcoming: Vec<Weather>,
     pub timezone: Tz,
+    pub alerts: Vec<WeatherAlert>,
 }
 
 #[derive(Debug)]
@@ -105,7 +115,7 @@ impl WeatherProvider {
         api_key: &ApiKey,
         latitude: f64,
         longitude: f64,
-    ) -> Result<Vec<Weather>> {
+    ) -> Result<(Vec<Weather>, Vec<WeatherAlert>)> {
         // Validate coordinates before making API calls
         validate_coordinates(latitude, longitude)
             .with_context(|| format!("Invalid coordinates: lat={latitude}, lon={longitude}"))?;
@@ -121,6 +131,7 @@ impl WeatherProvider {
         debug!("{weather:?}");
 
         let now = Utc::now().with_timezone(&weather.timezone);
+        let alerts = weather.alerts;
 
         let hours_of_interest = hours_of_interest(now, None, false);
 
@@ -145,7 +156,7 @@ impl WeatherProvider {
             }
         }
 
-        Ok(filtered)
+        Ok((filtered, alerts))
     }
 }
 
