@@ -108,7 +108,7 @@ impl TryFrom<&(Tz, WeatherItem)> for Weather {
 
 fn filter_alerts(alerts: Vec<Alert>, timezone: Tz) -> Vec<WeatherAlert> {
     let now = Utc::now().with_timezone(&timezone);
-    let three_days_from_now = now + chrono::Duration::days(3);
+    let cutoff_time = now + chrono::Duration::days(5);
 
     alerts
         .into_iter()
@@ -116,8 +116,8 @@ fn filter_alerts(alerts: Vec<Alert>, timezone: Tz) -> Vec<WeatherAlert> {
             let start = alert.start.with_timezone(&timezone);
             let end = alert.end.with_timezone(&timezone);
 
-            // Include alerts that haven't ended, start within 3 days, and have valid duration
-            if end > now && start <= three_days_from_now && start <= end {
+            // Include alerts that haven't ended, start within the cutoff, and have valid duration
+            if end > now && start <= cutoff_time && start <= end {
                 Some(WeatherAlert {
                     event: alert.event,
                     sender_name: alert.sender_name,
