@@ -59,15 +59,16 @@ fn to_forecast(weather: Vec<Weather>, alerts: Vec<WeatherAlert>) -> Result<Vec<S
     Ok(forecast)
 }
 
-fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
-    match timestamp.hour() {
-        0 => "midnight".into(),
-        12 => "noon".into(),
-        _ => {
-            let (pm, hour) = timestamp.hour12();
-            format!("{} {}", hour, if pm { "PM" } else { "AM" })
-        }
+fn format_time(dt: &DateTime<Tz>, time_format: &str) -> String {
+    match dt.hour() {
+        0 => "midnight".to_string(),
+        12 => "noon".to_string(),
+        _ => dt.format(time_format).to_string(),
     }
+}
+
+fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
+    format_time(timestamp, "%-I %p")
 }
 
 fn speakable_weather(weather: &Weather) -> String {
@@ -110,11 +111,7 @@ fn format_alerts(alerts: &[WeatherAlert]) -> String {
 }
 
 fn format_alert_time(dt: &DateTime<Tz>) -> String {
-    match dt.hour() {
-        0 => "midnight".to_string(),
-        12 => "noon".to_string(),
-        _ => dt.format("%-I%P").to_string(),
-    }
+    format_time(dt, "%-I%P")
 }
 
 fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
