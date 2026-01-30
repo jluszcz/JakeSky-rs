@@ -109,19 +109,31 @@ fn format_alerts(alerts: &[WeatherAlert]) -> String {
     parts.join(". ") + "."
 }
 
+fn format_alert_time(dt: &DateTime<Tz>) -> String {
+    match dt.hour() {
+        0 => "midnight".to_string(),
+        12 => "noon".to_string(),
+        _ => dt.format("%-I%P").to_string(),
+    }
+}
+
 fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
-    // Format as "from 7am tomorrow through 8pm Monday"
-    let start_time = start.format("%-I%P").to_string();
-    let end_time = end.format("%-I%P").to_string();
+    // Format as "from 7am tomorrow through 8pm Monday" or "from midnight through 11am today"
+    let start_time = format_alert_time(start);
+    let end_time = format_alert_time(end);
 
     let now = start.timezone().from_utc_datetime(&Utc::now().naive_utc());
     let start_day = relative_day(start, &now);
     let end_day = relative_day(end, &now);
 
-    format!(
-        "from {} {} through {} {}",
-        start_time, start_day, end_time, end_day
-    )
+    if start_day == end_day {
+        format!("from {} through {} {}", start_time, end_time, end_day)
+    } else {
+        format!(
+            "from {} {} through {} {}",
+            start_time, start_day, end_time, end_day
+        )
+    }
 }
 
 fn relative_day(dt: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
@@ -254,5 +266,105 @@ mod test {
         assert!(forecast[1].contains("And 1 more alert"));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_format_alert_time_midnight() {
+        use chrono::NaiveDate;
+        let dt = Tz::UTC
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(2024, 1, 15)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(format_alert_time(&dt), "midnight");
+    }
+
+    #[test]
+    fn test_format_alert_time_noon() {
+        use chrono::NaiveDate;
+        let dt = Tz::UTC
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(2024, 1, 15)
+                    .unwrap()
+                    .and_hms_opt(12, 0, 0)
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(format_alert_time(&dt), "noon");
+    }
+
+    #[test]
+    fn test_format_alert_time_normal_hours() {
+        use chrono::NaiveDate;
+
+        let am_time = Tz::UTC
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(2024, 1, 15)
+                    .unwrap()
+                    .and_hms_opt(8, 0, 0)
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(format_alert_time(&am_time), "8am");
+
+        let pm_time = Tz::UTC
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(2024, 1, 15)
+                    .unwrap()
+                    .and_hms_opt(18, 0, 0)
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(format_alert_time(&pm_time), "6pm");
+    }
+
+    #[test]
+    fn test_format_alert_timerange_same_day() {
+        // Use current date to ensure "today" logic works
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let today = now.date_naive();
+
+        let start = Tz::UTC
+            .from_local_datetime(&today.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+
+        let end = Tz::UTC
+            .from_local_datetime(&today.and_hms_opt(11, 0, 0).unwrap())
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        assert!(result.contains("from midnight through 11am"));
+        assert!(!result.contains("midnight today through"));
+        // Should only have one day mention at the end
+        assert_eq!(result.matches("today").count(), 1);
+        assert!(result.ends_with("today"));
+    }
+
+    #[test]
+    fn test_format_alert_timerange_different_days() {
+        use chrono::Duration;
+
+        // Use current date to ensure relative day logic works correctly
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let today = now.date_naive();
+
+        let start = Tz::UTC
+            .from_local_datetime(&today.and_hms_opt(8, 0, 0).unwrap())
+            .unwrap();
+
+        let end = start + Duration::days(2) + Duration::hours(4); // 12pm two days later
+
+        let result = format_alert_timerange(&start, &end);
+        assert!(result.contains("from 8am"));
+        assert!(result.contains("through noon"));
+        // Should have two day mentions (different days)
+        assert!(result.contains("8am "));
+        assert!(result.contains(" noon "));
+        // Verify format has both day mentions
+        let parts: Vec<&str> = result.split_whitespace().collect();
+        assert!(parts.len() >= 6); // "from 8am [day] through noon [day]"
     }
 }
