@@ -59,16 +59,12 @@ fn to_forecast(weather: Vec<Weather>, alerts: Vec<WeatherAlert>) -> Result<Vec<S
     Ok(forecast)
 }
 
-fn format_time(dt: &DateTime<Tz>, time_format: &str) -> String {
-    match dt.hour() {
+fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
+    match timestamp.hour() {
         0 => "midnight".to_string(),
         12 => "noon".to_string(),
-        _ => dt.format(time_format).to_string(),
+        _ => timestamp.format("%-I%P").to_string(),
     }
-}
-
-fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
-    format_time(timestamp, "%-I %p")
 }
 
 fn speakable_weather(weather: &Weather) -> String {
@@ -110,14 +106,10 @@ fn format_alerts(alerts: &[WeatherAlert]) -> String {
     parts.join(". ") + "."
 }
 
-fn format_alert_time(dt: &DateTime<Tz>) -> String {
-    format_time(dt, "%-I%P")
-}
-
 fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
     // Format as "from 7am tomorrow through 8pm Monday" or "from midnight through 11am today"
-    let start_time = format_alert_time(start);
-    let end_time = format_alert_time(end);
+    let start_time = speakable_timestamp(start);
+    let end_time = speakable_timestamp(end);
 
     let now = start.timezone().from_utc_datetime(&Utc::now().naive_utc());
     let start_day = relative_day(start, &now);
@@ -266,7 +258,7 @@ mod test {
     }
 
     #[test]
-    fn test_format_alert_time_midnight() {
+    fn test_speakable_timestamp_midnight() {
         use chrono::NaiveDate;
         let dt = Tz::UTC
             .from_local_datetime(
@@ -276,11 +268,11 @@ mod test {
                     .unwrap(),
             )
             .unwrap();
-        assert_eq!(format_alert_time(&dt), "midnight");
+        assert_eq!(speakable_timestamp(&dt), "midnight");
     }
 
     #[test]
-    fn test_format_alert_time_noon() {
+    fn test_speakable_timestamp_noon() {
         use chrono::NaiveDate;
         let dt = Tz::UTC
             .from_local_datetime(
@@ -290,11 +282,11 @@ mod test {
                     .unwrap(),
             )
             .unwrap();
-        assert_eq!(format_alert_time(&dt), "noon");
+        assert_eq!(speakable_timestamp(&dt), "noon");
     }
 
     #[test]
-    fn test_format_alert_time_normal_hours() {
+    fn test_speakable_timestamp_normal_hours() {
         use chrono::NaiveDate;
 
         let am_time = Tz::UTC
@@ -305,7 +297,7 @@ mod test {
                     .unwrap(),
             )
             .unwrap();
-        assert_eq!(format_alert_time(&am_time), "8am");
+        assert_eq!(speakable_timestamp(&am_time), "8am");
 
         let pm_time = Tz::UTC
             .from_local_datetime(
@@ -315,7 +307,7 @@ mod test {
                     .unwrap(),
             )
             .unwrap();
-        assert_eq!(format_alert_time(&pm_time), "6pm");
+        assert_eq!(speakable_timestamp(&pm_time), "6pm");
     }
 
     #[test]
