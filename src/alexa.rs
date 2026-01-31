@@ -115,7 +115,10 @@ fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
     let start_day = relative_day(start, &now);
     let end_day = relative_day(end, &now);
 
-    if start_day == end_day {
+    // Omit "from yesterday" when alert started yesterday
+    if start_day == "yesterday" && start_day != end_day {
+        format!("through {} {}", end_time, end_day)
+    } else if start_day == end_day {
         format!("from {} through {} {}", start_time, end_time, end_day)
     } else {
         format!(
@@ -355,5 +358,43 @@ mod test {
         // Verify format has both day mentions
         let parts: Vec<&str> = result.split_whitespace().collect();
         assert!(parts.len() >= 6); // "from 8am [day] through noon [day]"
+    }
+
+    #[test]
+    fn test_format_alert_timerange_yesterday_to_today() {
+        use chrono::Duration;
+
+        // Create an alert that started yesterday and ends today
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let today = now.date_naive();
+        let yesterday = today - Duration::days(1);
+
+        let start = Tz::UTC
+            .from_local_datetime(&yesterday.and_hms_opt(23, 0, 0).unwrap()) // 11pm yesterday
+            .unwrap();
+
+        let end = Tz::UTC
+            .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap()) // 10am today
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        // Should omit "yesterday" and "from"
+        assert!(
+            !result.contains("yesterday"),
+            "Result should not contain 'yesterday': {}",
+            result
+        );
+        assert!(
+            !result.contains("from"),
+            "Result should not contain 'from': {}",
+            result
+        );
+        assert!(
+            result.starts_with("through"),
+            "Result should start with 'through': {}",
+            result
+        );
+        assert!(result.contains("10am"));
+        assert!(result.contains("today"));
     }
 }
