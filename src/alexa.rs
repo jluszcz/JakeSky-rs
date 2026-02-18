@@ -115,9 +115,9 @@ fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
     let start_day = relative_day(start, &now);
     let end_day = relative_day(end, &now);
 
-    // Omit "from yesterday" when alert started yesterday
-    if start_day == "yesterday" && start_day != end_day {
-        format!("through {} {}", end_time, end_day)
+    // Omit start time if alert started in the past
+    if start < &now {
+        format!("until {} {}", end_time, end_day)
     } else if start_day == end_day {
         format!("from {} through {} {}", start_time, end_time, end_day)
     } else {
@@ -315,24 +315,25 @@ mod test {
 
     #[test]
     fn test_format_alert_timerange_same_day() {
-        // Use current date to ensure "today" logic works
+        use chrono::Duration;
+
+        // Create alert in the future on the same day
         let now = Utc::now().with_timezone(&Tz::UTC);
-        let today = now.date_naive();
 
-        let start = Tz::UTC
-            .from_local_datetime(&today.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
-
-        let end = Tz::UTC
-            .from_local_datetime(&today.and_hms_opt(11, 0, 0).unwrap())
-            .unwrap();
+        // Start 2 hours from now, end 8 hours from now (both in future, same day)
+        let start = now + Duration::hours(2);
+        let end = now + Duration::hours(8);
 
         let result = format_alert_timerange(&start, &end);
-        assert!(result.contains("from midnight through 11am"));
-        assert!(!result.contains("midnight today through"));
-        // Should only have one day mention at the end
-        assert_eq!(result.matches("today").count(), 1);
-        assert!(result.ends_with("today"));
+        // Should have "from" since start is in the future
+        assert!(result.contains("from"));
+        assert!(result.contains("through"));
+        // Should only have one day mention at the end when same day
+        assert!(
+            !result.matches(" today ").any(|_| true),
+            "Should not have 'today' in the middle"
+        );
+        assert!(result.ends_with("today") || result.ends_with("tomorrow"));
     }
 
     #[test]
@@ -378,7 +379,7 @@ mod test {
             .unwrap();
 
         let result = format_alert_timerange(&start, &end);
-        // Should omit "yesterday" and "from"
+        // Should omit "yesterday" and "from", use "until" for past alerts
         assert!(
             !result.contains("yesterday"),
             "Result should not contain 'yesterday': {}",
@@ -390,8 +391,8 @@ mod test {
             result
         );
         assert!(
-            result.starts_with("through"),
-            "Result should start with 'through': {}",
+            result.starts_with("until"),
+            "Result should start with 'until': {}",
             result
         );
         assert!(result.contains("10am"));
