@@ -340,12 +340,12 @@ mod test {
     fn test_format_alert_timerange_different_days() {
         use chrono::Duration;
 
-        // Use current date to ensure relative day logic works correctly
+        // Use tomorrow to ensure start is always in the future
         let now = Utc::now().with_timezone(&Tz::UTC);
-        let today = now.date_naive();
+        let tomorrow = (now + Duration::days(1)).date_naive();
 
         let start = Tz::UTC
-            .from_local_datetime(&today.and_hms_opt(8, 0, 0).unwrap())
+            .from_local_datetime(&tomorrow.and_hms_opt(8, 0, 0).unwrap())
             .unwrap();
 
         let end = start + Duration::days(2) + Duration::hours(4); // 12pm two days later
