@@ -1,17 +1,16 @@
-use crate::weather::{self, Weather, WeatherAlert, WeatherForecast, WeatherProvider};
+use crate::weather::{self, Weather, WeatherAlert, WeatherForecast};
 use again::RetryPolicy;
 use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
+use jluszcz_rust_utils::cache::{dated_cache_path, try_cached_query};
 use log::{debug, trace};
 use reqwest::Method;
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use std::time::Duration;
-
-const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::OpenWeather;
 
 #[derive(Deserialize, Debug)]
 struct Response {
@@ -179,10 +178,9 @@ pub async fn get_weather(
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
-    let cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("{latitude:.1}_{longitude:.1}"));
+    let cache_path = dated_cache_path(&format!("openweather_{latitude:.1}_{longitude:.1}"));
 
-    let response_str = weather::try_cached_query(use_cache, &cache_path, || {
+    let response_str = try_cached_query(use_cache, &cache_path, || {
         query(api_key, latitude, longitude)
     })
     .await
