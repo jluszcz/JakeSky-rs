@@ -1,16 +1,15 @@
-use crate::weather::{self, Weather, WeatherForecast, WeatherProvider};
+use crate::weather::{self, Weather, WeatherForecast};
 use again::RetryPolicy;
 use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
+use jluszcz_rust_utils::cache::{dated_cache_path, try_cached_query};
 use log::trace;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
-
-const WEATHER_PROVIDER: &WeatherProvider = &WeatherProvider::AccuWeather;
 
 #[derive(Deserialize, Debug)]
 struct LocationResponse {
@@ -177,16 +176,12 @@ pub async fn get_weather(
 ) -> Result<WeatherForecast> {
     let token_suffix = format!("{latitude:.1}_{longitude:.1}");
 
-    let location_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("location_{token_suffix}"));
-
-    let weather_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("weather_{token_suffix}"));
-
+    let location_cache_path = dated_cache_path(&format!("accuweather-location_{token_suffix}"));
+    let weather_cache_path = dated_cache_path(&format!("accuweather-weather_{token_suffix}"));
     let current_conditions_cache_path =
-        weather::get_cache_path(WEATHER_PROVIDER, &format!("curr_{token_suffix}"));
+        dated_cache_path(&format!("accuweather-curr_{token_suffix}"));
 
-    let location = weather::try_cached_query(use_cache, &location_cache_path, || {
+    let location = try_cached_query(use_cache, &location_cache_path, || {
         query_location(api_key, latitude, longitude)
     })
     .await
@@ -197,19 +192,18 @@ pub async fn get_weather(
     let location: LocationResponse = serde_json::from_str(&location)
         .with_context(|| "Failed to parse location response from AccuWeather API")?;
 
-    let current_conditions =
-        weather::try_cached_query(use_cache, &current_conditions_cache_path, || {
-            query_current_conditions(api_key, &location.id)
-        })
-        .await
-        .with_context(|| {
-            format!(
-                "Failed to get current conditions for location ID {}",
-                location.id
-            )
-        })?;
+    let current_conditions = try_cached_query(use_cache, &current_conditions_cache_path, || {
+        query_current_conditions(api_key, &location.id)
+    })
+    .await
+    .with_context(|| {
+        format!(
+            "Failed to get current conditions for location ID {}",
+            location.id
+        )
+    })?;
 
-    let weather_data = weather::try_cached_query(use_cache, &weather_cache_path, || {
+    let weather_data = try_cached_query(use_cache, &weather_cache_path, || {
         query_weather(api_key, &location.id)
     })
     .await

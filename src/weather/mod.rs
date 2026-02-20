@@ -3,15 +3,10 @@ use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use log::{debug, trace};
 use reqwest::Client;
-use std::env;
 use std::fmt;
-use std::future::Future;
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::OnceLock;
 use std::time::Duration;
-use tokio::fs::{self, OpenOptions};
-use tokio::io::AsyncWriteExt;
 
 pub mod accu_weather;
 pub mod open_weather;
@@ -172,87 +167,6 @@ impl FromStr for WeatherProvider {
             Err(anyhow!("Unknown weather provider: {}", s))
         }
     }
-}
-
-pub fn get_cache_path(weather_provider: &WeatherProvider, token: &str) -> PathBuf {
-    let mut path = env::temp_dir();
-    // Sanitize token to remove special characters that could cause filesystem issues
-    let sanitized_token = sanitize_filename(token);
-    path.push(format!(
-        "{}-{}-{}.json",
-        weather_provider.id(),
-        Utc::now().date_naive().format("%Y%m%d"),
-        sanitized_token
-    ));
-
-    path
-}
-
-fn sanitize_filename(input: &str) -> String {
-    input
-        .chars()
-        .map(|c| match c {
-            // Replace potentially problematic characters with underscores
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
-            // Keep dots for negative numbers but replace with 'n' prefix for clarity
-            '.' => 'd',
-            // Replace minus sign with 'n' for negative coordinates
-            '-' => 'n',
-            // Keep alphanumeric characters as-is
-            c if c.is_alphanumeric() => c,
-            // Replace any other special characters with underscores
-            _ => '_',
-        })
-        .collect()
-}
-
-pub async fn try_cached_query<F>(
-    use_cache: bool,
-    cache_path: &Path,
-    query: impl Fn() -> F,
-) -> Result<String>
-where
-    F: Future<Output = Result<String>>,
-{
-    match try_cached(use_cache, cache_path).await? {
-        Some(cached) => Ok(cached),
-        _ => {
-            let response = query().await?;
-            try_write_cache(use_cache, cache_path, &response).await?;
-            Ok(response)
-        }
-    }
-}
-
-async fn try_cached(use_cache: bool, cache_path: &Path) -> Result<Option<String>> {
-    if use_cache && cache_path.exists() {
-        debug!("Reading cache file: {cache_path:?}");
-        Ok(Some(fs::read_to_string(cache_path).await.with_context(
-            || format!("Failed to read cache file: {cache_path:?}"),
-        )?))
-    } else {
-        Ok(None)
-    }
-}
-
-async fn try_write_cache(use_cache: bool, cache_path: &Path, response: &str) -> Result<()> {
-    if use_cache {
-        debug!("Writing response to cache file: {cache_path:?}");
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(cache_path)
-            .await
-            .with_context(|| format!("Failed to create or open cache file: {cache_path:?}"))?;
-
-        file.write_all(response.as_bytes())
-            .await
-            .with_context(|| format!("Failed to write data to cache file: {cache_path:?}"))?;
-    }
-
-    Ok(())
 }
 
 pub fn hours_of_interest(
