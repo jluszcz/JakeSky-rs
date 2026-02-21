@@ -3,12 +3,10 @@ use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::lambda;
 use lambda_runtime::{LambdaEvent, service_fn};
 use serde_json::{Value, json};
-use std::{env, error::Error};
-
-type LambdaError = Box<dyn Error + Send + Sync + 'static>;
+use std::env;
 
 #[tokio::main]
-async fn main() -> Result<(), LambdaError> {
+async fn main() -> Result<(), lambda_runtime::Error> {
     let func = service_fn(function);
     lambda_runtime::run(func).await?;
     Ok(())
@@ -22,7 +20,7 @@ fn is_warmup_event(event: Value) -> bool {
             .unwrap_or("no detail-type")
 }
 
-async fn function(event: LambdaEvent<Value>) -> Result<Value, LambdaError> {
+async fn function(event: LambdaEvent<Value>) -> Result<Value, lambda_runtime::Error> {
     if is_warmup_event(event.payload) {
         return Ok(json!({}));
     }
