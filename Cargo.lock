@@ -1502,7 +1502,7 @@ dependencies = [
 [[package]]
 name = "jluszcz_rust_utils"
 version = "0.1.0"
-source = "git+https://github.com//jluszcz/rust-utils#0d0f1a8a7c004ec0f788cc14bcb1e15702df2527"
+source = "git+https://github.com//jluszcz/rust-utils#3cebd867b314b551ae6a127d32808ee21dfa38b9"
 dependencies = [
  "again",
  "anyhow",
