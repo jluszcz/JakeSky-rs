@@ -315,25 +315,29 @@ mod test {
 
     #[test]
     fn test_format_alert_timerange_same_day() {
-        use chrono::Duration;
+        use chrono::NaiveDate;
 
-        // Create alert in the future on the same day
-        let now = Utc::now().with_timezone(&Tz::UTC);
-
-        // Start 2 hours from now, end 8 hours from now (both in future, same day)
-        let start = now + Duration::hours(2);
-        let end = now + Duration::hours(8);
+        // Use fixed noon time so start and end always stay on the same day regardless of when
+        // the test runs. noon + 6h = 6pm, both on the same date.
+        let noon = Tz::UTC
+            .from_local_datetime(
+                &NaiveDate::from_ymd_opt(2099, 6, 15)
+                    .unwrap()
+                    .and_hms_opt(12, 0, 0)
+                    .unwrap(),
+            )
+            .unwrap();
+        let start = noon;
+        let end = noon + chrono::Duration::hours(6);
 
         let result = format_alert_timerange(&start, &end);
-        // Should have "from" since start is in the future
-        assert!(result.contains("from"));
-        assert!(result.contains("through"));
-        // Should only have one day mention at the end when same day
+        // speakable_timestamp(noon) = "noon", speakable_timestamp(6pm) = "6pm"
+        // Same day → day label should appear only once at the end
         assert!(
-            !result.matches(" today ").any(|_| true),
-            "Should not have 'today' in the middle"
+            result.starts_with("from noon through 6pm "),
+            "Expected 'from noon through 6pm <day>', got: {}",
+            result
         );
-        assert!(result.ends_with("today") || result.ends_with("tomorrow"));
     }
 
     #[test]
