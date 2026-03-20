@@ -98,5 +98,5 @@ jobs:
       - name: Deploy Lambda
         if: github.event_name == 'push'
         env:
-          AWS_BUCKET: ${{ secrets.AWS_BUCKET }}
+          AWS_BUCKET: code-${{ secrets.AWS_ACCOUNT_ID }}-${{ env.AWS_DEFAULT_REGION }}-an
         run: aws s3 cp ${{ env.PROJECT }}.zip s3://${AWS_BUCKET}/
