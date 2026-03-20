@@ -17,8 +17,6 @@ variable "jakesky_latitude" {}
 
 variable "jakesky_longitude" {}
 
-variable "code_bucket" {}
-
 variable "aws_region" {
   type    = string
   default = "us-east-1"
@@ -26,6 +24,12 @@ variable "aws_region" {
 
 provider "aws" {
   region = var.aws_region
+}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_s3_bucket" "code_bucket" {
+  bucket = format("code-%s-%s-an", data.aws_caller_identity.current.account_id, var.aws_region)
 }
 
 data "aws_iam_policy_document" "jakesky_assume_role_policy_document" {
@@ -108,10 +112,6 @@ resource "aws_lambda_permission" "allow_alexa" {
 
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-}
-
-data "aws_s3_bucket" "code_bucket" {
-  bucket = var.code_bucket
 }
 
 data "aws_iam_policy_document" "github" {
