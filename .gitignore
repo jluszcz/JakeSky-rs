@@ -3,4 +3,4 @@
 /.claude
 /.idea
 /target
-env-*
+env
