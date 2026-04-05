@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
+use jakesky::ai::BedrockSummarizer;
+use jakesky::alert_summary;
 use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::{Verbosity, set_up_logger};
@@ -103,6 +105,8 @@ fn parse_args() -> Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let args = parse_args();
     set_up_logger(APP_NAME, module_path!(), args.verbosity)?;
     debug!("{args:?}");
@@ -115,7 +119,13 @@ async fn main() -> Result<()> {
         .get_weather(args.use_cache, &args.api_key, args.latitude, args.longitude)
         .await?;
 
-    alexa::forecast(weather, alerts)?;
+    let summarizer = if alert_summary::needs_llm_fallback(&alerts) {
+        BedrockSummarizer::try_init().await
+    } else {
+        None
+    };
+
+    alexa::forecast(weather, alerts, summarizer.as_ref()).await?;
 
     Ok(())
 }
