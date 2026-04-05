@@ -74,6 +74,29 @@ resource "aws_iam_role_policy_attachment" "basic_execution_role_attachment" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+data "aws_iam_policy_document" "bedrock" {
+  statement {
+    actions = ["bedrock:InvokeModel"]
+    # Cross-region inference profiles route through multiple regions, so the wildcard region is required.
+    # Both the foundation model and inference profile ARNs are needed: the profile is what gets invoked,
+    # and it in turn routes to the underlying foundation model.
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/amazon.nova-2-lite-v1:0",
+      "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-2-lite-v1:0",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "bedrock" {
+  name   = "jakesky.bedrock"
+  policy = data.aws_iam_policy_document.bedrock.json
+}
+
+resource "aws_iam_role_policy_attachment" "bedrock" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = aws_iam_policy.bedrock.arn
+}
+
 resource "aws_lambda_function" "jakesky" {
   function_name = "jakesky"
   s3_bucket     = data.aws_s3_bucket.code_bucket.bucket
@@ -84,7 +107,7 @@ resource "aws_lambda_function" "jakesky" {
   handler       = "ignored"
   publish       = "false"
   description   = "Retrieve local weather for commutes and lunchtime"
-  timeout       = 5
+  timeout       = 10
   memory_size   = 128
 
   environment {
