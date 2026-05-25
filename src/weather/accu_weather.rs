@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
-use jluszcz_rust_utils::cache::{dated_cache_path, try_cached_query};
+use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query};
 use log::trace;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -169,7 +169,7 @@ async fn query_weather(api_key: &str, location_id: &str) -> Result<String> {
 }
 
 pub async fn get_weather(
-    use_cache: bool,
+    cache_mode: CacheMode,
     api_key: &str,
     latitude: f64,
     longitude: f64,
@@ -181,7 +181,7 @@ pub async fn get_weather(
     let current_conditions_cache_path =
         dated_cache_path(&format!("accuweather-curr_{token_suffix}"));
 
-    let location = try_cached_query(use_cache, &location_cache_path, || {
+    let location = try_cached_query(cache_mode, &location_cache_path, || {
         query_location(api_key, latitude, longitude)
     })
     .await
@@ -192,7 +192,7 @@ pub async fn get_weather(
     let location: LocationResponse = serde_json::from_str(&location)
         .with_context(|| "Failed to parse location response from AccuWeather API")?;
 
-    let current_conditions = try_cached_query(use_cache, &current_conditions_cache_path, || {
+    let current_conditions = try_cached_query(cache_mode, &current_conditions_cache_path, || {
         query_current_conditions(api_key, &location.id)
     })
     .await
@@ -203,7 +203,7 @@ pub async fn get_weather(
         )
     })?;
 
-    let weather_data = try_cached_query(use_cache, &weather_cache_path, || {
+    let weather_data = try_cached_query(cache_mode, &weather_cache_path, || {
         query_weather(api_key, &location.id)
     })
     .await

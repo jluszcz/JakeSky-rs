@@ -1,7 +1,10 @@
+#![recursion_limit = "256"]
+
 use jakesky::ai::BedrockSummarizer;
 use jakesky::alert_summary;
 use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
+use jluszcz_rust_utils::cache::CacheMode;
 use jluszcz_rust_utils::lambda;
 use lambda_runtime::{LambdaEvent, service_fn};
 use serde_json::{Value, json};
@@ -38,7 +41,7 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, lambda_runtime::Er
     validate_coordinates(latitude, longitude)?;
 
     let (weather, alerts) = WeatherProvider::OpenWeather
-        .get_weather(false, &api_key, latitude, longitude)
+        .get_weather(CacheMode::Disabled, &api_key, latitude, longitude)
         .await?;
 
     let summarizer = if alert_summary::needs_llm_fallback(&alerts) {

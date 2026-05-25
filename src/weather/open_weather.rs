@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
-use jluszcz_rust_utils::cache::{dated_cache_path, try_cached_query};
+use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query};
 use log::{debug, trace};
 use reqwest::Method;
 use serde::Deserialize;
@@ -173,14 +173,14 @@ impl TryFrom<Response> for Vec<Weather> {
 }
 
 pub async fn get_weather(
-    use_cache: bool,
+    cache_mode: CacheMode,
     api_key: &str,
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
     let cache_path = dated_cache_path(&format!("openweather_{latitude:.1}_{longitude:.1}"));
 
-    let response_str = try_cached_query(use_cache, &cache_path, || {
+    let response_str = try_cached_query(cache_mode, &cache_path, || {
         query(api_key, latitude, longitude)
     })
     .await
