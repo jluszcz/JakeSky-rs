@@ -1,8 +1,9 @@
 #![recursion_limit = "256"]
 
+use anyhow::Context;
 use jakesky::ai::BedrockSummarizer;
 use jakesky::alert_summary;
-use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
+use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::cache::CacheMode;
 use jluszcz_rust_utils::lambda;
@@ -33,12 +34,10 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, lambda_runtime::Er
 
     lambda::init(APP_NAME, module_path!(), false).await?;
 
-    let api_key = ApiKey::new(env::var("JAKESKY_API_KEY")?)?;
+    let api_key =
+        ApiKey::new(env::var("JAKESKY_API_KEY")?).context("JAKESKY_API_KEY is invalid")?;
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
-
-    // Validate coordinates
-    validate_coordinates(latitude, longitude)?;
 
     let (weather, alerts) = WeatherProvider::OpenWeather
         .get_weather(CacheMode::Disabled, &api_key, latitude, longitude)

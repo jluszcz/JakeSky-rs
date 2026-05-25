@@ -1,15 +1,12 @@
-use crate::weather::{self, Weather, WeatherForecast};
-use again::RetryPolicy;
+use crate::weather::{ApiKey, Weather, WeatherForecast};
 use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query};
-use log::trace;
-use reqwest::Method;
-use serde::{Deserialize, Serialize};
+use jluszcz_rust_utils::query;
+use serde::Deserialize;
 use std::str::FromStr;
-use std::time::Duration;
 
 #[derive(Deserialize, Debug)]
 struct LocationResponse {
@@ -68,39 +65,21 @@ struct Temperature {
     value: f64,
 }
 
-impl TryFrom<(CurrentConditionsResponse, &str)> for Weather {
-    type Error = anyhow::Error;
-
-    fn try_from(value: (CurrentConditionsResponse, &str)) -> Result<Self, Self::Error> {
-        let (curr, timezone) = value;
-        let timezone = Tz::from_str(timezone).with_context(|| {
-            format!("Failed to parse timezone '{timezone}' from AccuWeather response")
-        })?;
-
-        Ok(Self {
-            timestamp: curr.timestamp.with_timezone(&timezone),
-            summary: normalize_weather(&curr.weather),
-            temp: curr.temp.imperial.value,
-            apparent_temp: curr.feels_like_temp.map(|t| t.imperial.value),
-        })
+fn current_to_weather(curr: CurrentConditionsResponse, timezone: Tz) -> Weather {
+    Weather {
+        timestamp: curr.timestamp.with_timezone(&timezone),
+        summary: normalize_weather(&curr.weather),
+        temp: curr.temp.imperial.value,
+        apparent_temp: curr.feels_like_temp.map(|t| t.imperial.value),
     }
 }
 
-impl TryFrom<(WeatherResponse, &str)> for Weather {
-    type Error = anyhow::Error;
-
-    fn try_from(value: (WeatherResponse, &str)) -> Result<Self, Self::Error> {
-        let (weather, timezone) = value;
-        let timezone = Tz::from_str(timezone).with_context(|| {
-            format!("Failed to parse timezone '{timezone}' from AccuWeather forecast response")
-        })?;
-
-        Ok(Self {
-            timestamp: weather.timestamp.with_timezone(&timezone),
-            summary: normalize_weather(&weather.weather),
-            temp: weather.temp.value,
-            apparent_temp: weather.feels_like_temp.map(|f| f.value),
-        })
+fn forecast_to_weather(weather: WeatherResponse, timezone: Tz) -> Weather {
+    Weather {
+        timestamp: weather.timestamp.with_timezone(&timezone),
+        summary: normalize_weather(&weather.weather),
+        temp: weather.temp.value,
+        apparent_temp: weather.feels_like_temp.map(|f| f.value),
     }
 }
 
@@ -110,67 +89,34 @@ fn normalize_weather(weather: &str) -> String {
         .replace("t-storms", "thunderstorms")
 }
 
-async fn http_get<T>(url: &str, params: &T) -> Result<String>
-where
-    T: Serialize + ?Sized,
-{
-    let retry_policy = RetryPolicy::exponential(Duration::from_millis(100))
-        .with_jitter(true)
-        .with_max_delay(Duration::from_secs(2))
-        .with_max_retries(3);
-
-    let response = retry_policy
-        .retry(|| {
-            weather::http_client()
-                .request(Method::GET, url)
-                .header("Accept", "application/json")
-                .header("Accept-Encoding", "gzip")
-                .query(params)
-                .send()
-        })
-        .await
-        .with_context(|| format!("Failed to make HTTP request to {url}"))?
-        .error_for_status()
-        .with_context(|| format!("HTTP request failed for {url}"))?
-        .text()
-        .await
-        .with_context(|| "Failed to read response body")?;
-
-    trace!("{response}");
-
-    Ok(response)
-}
-
-async fn query_location(api_key: &str, latitude: f64, longitude: f64) -> Result<String> {
-    http_get(
+async fn query_location(api_key: &ApiKey, latitude: f64, longitude: f64) -> Result<String> {
+    let q = format!("{latitude},{longitude}");
+    query::http_get(
         "http://dataservice.accuweather.com/locations/v1/cities/geoposition/search",
-        &[
-            ("apikey", api_key),
-            ("q", &format!("{latitude},{longitude}")),
-        ],
+        &[("apikey", api_key.as_str()), ("q", q.as_str())],
     )
     .await
 }
 
-async fn query_current_conditions(api_key: &str, location_id: &str) -> Result<String> {
-    http_get(
+async fn query_current_conditions(api_key: &ApiKey, location_id: &str) -> Result<String> {
+    query::http_get(
         &format!("http://dataservice.accuweather.com/currentconditions/v1/{location_id}"),
-        &[("apikey", api_key), ("details", "true")],
+        &[("apikey", api_key.as_str()), ("details", "true")],
     )
     .await
 }
 
-async fn query_weather(api_key: &str, location_id: &str) -> Result<String> {
-    http_get(
+async fn query_weather(api_key: &ApiKey, location_id: &str) -> Result<String> {
+    query::http_get(
         &format!("http://dataservice.accuweather.com/forecasts/v1/hourly/12hour/{location_id}"),
-        &[("apikey", api_key), ("details", "true")],
+        &[("apikey", api_key.as_str()), ("details", "true")],
     )
     .await
 }
 
 pub async fn get_weather(
     cache_mode: CacheMode,
-    api_key: &str,
+    api_key: &ApiKey,
     latitude: f64,
     longitude: f64,
 ) -> Result<WeatherForecast> {
@@ -191,6 +137,13 @@ pub async fn get_weather(
 
     let location: LocationResponse = serde_json::from_str(&location)
         .with_context(|| "Failed to parse location response from AccuWeather API")?;
+
+    let timezone = Tz::from_str(&location.timezone.name).with_context(|| {
+        format!(
+            "Failed to parse timezone '{}' from AccuWeather response",
+            location.timezone.name
+        )
+    })?;
 
     let current_conditions = try_cached_query(cache_mode, &current_conditions_cache_path, || {
         query_current_conditions(api_key, &location.id)
@@ -214,41 +167,37 @@ pub async fn get_weather(
         )
     })?;
 
-    let current = parse_current_conditions(&current_conditions, &location.timezone.name)
+    let current = parse_current_conditions(&current_conditions, timezone)
         .with_context(|| "Failed to parse current weather conditions")?;
-    let upcoming = parse_weather(&weather_data, &location.timezone.name)
+    let upcoming = parse_weather(&weather_data, timezone)
         .with_context(|| "Failed to parse weather forecast data")?;
 
     Ok(WeatherForecast {
-        timezone: current.timestamp.timezone(),
+        timezone,
         current,
         upcoming,
         alerts: Vec::new(), // AccuWeather alerts are not currently implemented
     })
 }
 
-fn parse_current_conditions(response: &str, timezone: &str) -> Result<Weather> {
+fn parse_current_conditions(response: &str, timezone: Tz) -> Result<Weather> {
     let response: Vec<CurrentConditionsResponse> = serde_json::from_str(response)
         .with_context(|| "Failed to deserialize current conditions JSON from AccuWeather")?;
-    let response = response
+    let curr = response
         .into_iter()
         .next()
         .ok_or_else(|| anyhow!("AccuWeather API returned empty current conditions array"))?;
-    (response, timezone).try_into()
+    Ok(current_to_weather(curr, timezone))
 }
 
-fn parse_weather(response: &str, timezone: &str) -> Result<Vec<Weather>> {
+fn parse_weather(response: &str, timezone: Tz) -> Result<Vec<Weather>> {
     let response: Vec<WeatherResponse> = serde_json::from_str(response)
         .with_context(|| "Failed to deserialize weather forecast JSON from AccuWeather")?;
 
-    let mut weather = Vec::new();
-    for (index, w) in response.into_iter().enumerate() {
-        weather.push((w, timezone).try_into().with_context(|| {
-            format!("Failed to convert weather entry {index} from AccuWeather")
-        })?);
-    }
-
-    Ok(weather)
+    Ok(response
+        .into_iter()
+        .map(|w| forecast_to_weather(w, timezone))
+        .collect())
 }
 
 #[cfg(test)]

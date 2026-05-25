@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
 use jakesky::ai::BedrockSummarizer;
 use jakesky::alert_summary;
-use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
+use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::cache::CacheMode;
 use jluszcz_rust_utils::{Verbosity, set_up_logger};
@@ -63,6 +63,7 @@ fn create_command() -> Command {
                 .required(true)
                 .env("JAKESKY_API_KEY")
                 .hide_env_values(true)
+                .value_parser(parse_api_key)
                 .help("API key to use with the weather provider"),
         )
         .arg(
@@ -78,12 +79,16 @@ fn create_command() -> Command {
         )
 }
 
+fn parse_api_key(s: &str) -> Result<ApiKey, String> {
+    ApiKey::new(s).map_err(|e| e.to_string())
+}
+
 fn args_from_matches(matches: clap::ArgMatches) -> Args {
     let verbosity = matches.get_count("verbosity").into();
     let cache_mode = matches.get_flag("use-cache").into();
     let latitude = *matches.get_one::<f64>("latitude").unwrap();
     let longitude = *matches.get_one::<f64>("longitude").unwrap();
-    let api_key = ApiKey::new(matches.get_one::<String>("api-key").cloned().unwrap()).unwrap();
+    let api_key = matches.get_one::<ApiKey>("api-key").cloned().unwrap();
     let provider = matches
         .get_one::<String>("provider")
         .and_then(|p| WeatherProvider::from_str(p).ok())
@@ -111,9 +116,6 @@ async fn main() -> Result<()> {
     let args = parse_args();
     set_up_logger(APP_NAME, module_path!(), args.verbosity)?;
     debug!("{args:?}");
-
-    // Validate coordinates early for better error messages
-    validate_coordinates(args.latitude, args.longitude)?;
 
     let (weather, alerts) = args
         .provider
@@ -182,7 +184,8 @@ mod tests {
                 Arg::new("api-key")
                     .short('a')
                     .long("api-key")
-                    .required(true),
+                    .required(true)
+                    .value_parser(parse_api_key),
             )
             .arg(
                 Arg::new("provider")

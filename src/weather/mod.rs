@@ -3,29 +3,34 @@ use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
 use jluszcz_rust_utils::cache::CacheMode;
 use log::{debug, trace};
-use reqwest::Client;
 use std::fmt;
 use std::str::FromStr;
-use std::sync::OnceLock;
-use std::time::Duration;
 
 pub mod accu_weather;
 pub mod open_weather;
+
+/// Minimum length for an API key. Soft sanity check to catch obvious
+/// configuration mistakes (e.g. empty or placeholder values), not a security
+/// guarantee — real provider keys are far longer than this.
+const MIN_API_KEY_LEN: usize = 8;
 
 /// A secure wrapper for API keys that prevents accidental logging
 #[derive(Clone)]
 pub struct ApiKey(String);
 
 impl ApiKey {
-    /// Creates a new ApiKey after basic validation
+    /// Creates a new ApiKey after sanity-checking the input.
+    ///
+    /// Rejects keys that are empty / whitespace-only, or shorter than
+    /// [`MIN_API_KEY_LEN`] characters.
     pub fn new(key: impl Into<String>) -> Result<Self> {
         let key = key.into();
         if key.trim().is_empty() {
             return Err(anyhow!("API key cannot be empty"));
         }
-        if key.len() < 8 {
+        if key.len() < MIN_API_KEY_LEN {
             return Err(anyhow!(
-                "API key appears to be too short (minimum 8 characters)"
+                "API key appears to be too short (minimum {MIN_API_KEY_LEN} characters)"
             ));
         }
         Ok(Self(key))
@@ -112,16 +117,15 @@ impl WeatherProvider {
         latitude: f64,
         longitude: f64,
     ) -> Result<(Vec<Weather>, Vec<WeatherAlert>)> {
-        // Validate coordinates before making API calls
         validate_coordinates(latitude, longitude)
             .with_context(|| format!("Invalid coordinates: lat={latitude}, lon={longitude}"))?;
 
         let weather = match self {
             Self::AccuWeather => {
-                accu_weather::get_weather(cache_mode, api_key.as_str(), latitude, longitude).await
+                accu_weather::get_weather(cache_mode, api_key, latitude, longitude).await
             }
             Self::OpenWeather => {
-                open_weather::get_weather(cache_mode, api_key.as_str(), latitude, longitude).await
+                open_weather::get_weather(cache_mode, api_key, latitude, longitude).await
             }
         }?;
         debug!("{weather:?}");
@@ -196,7 +200,7 @@ pub fn hours_of_interest(
 }
 
 /// Validates that latitude is within valid bounds (-90.0 to 90.0)
-pub fn validate_latitude(latitude: f64) -> Result<()> {
+fn validate_latitude(latitude: f64) -> Result<()> {
     if !(-90.0..=90.0).contains(&latitude) {
         return Err(anyhow!(
             "Latitude must be between -90.0 and 90.0 degrees, got: {}",
@@ -207,7 +211,7 @@ pub fn validate_latitude(latitude: f64) -> Result<()> {
 }
 
 /// Validates that longitude is within valid bounds (-180.0 to 180.0)
-pub fn validate_longitude(longitude: f64) -> Result<()> {
+fn validate_longitude(longitude: f64) -> Result<()> {
     if !(-180.0..=180.0).contains(&longitude) {
         return Err(anyhow!(
             "Longitude must be between -180.0 and 180.0 degrees, got: {}",
@@ -224,18 +228,35 @@ pub fn validate_coordinates(latitude: f64, longitude: f64) -> Result<()> {
     Ok(())
 }
 
-// Shared HTTP client with optimized configuration
-static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-pub fn http_client() -> &'static Client {
-    HTTP_CLIENT.get_or_init(|| {
-        Client::builder()
-            .timeout(Duration::from_secs(30))
-            .connect_timeout(Duration::from_secs(10))
-            .pool_idle_timeout(Duration::from_secs(90))
-            .pool_max_idle_per_host(10)
-            .gzip(true)
-            .build()
-            .expect("Failed to create HTTP client")
-    })
+    const SECRET: &str = "super-secret-key-value";
+
+    #[test]
+    fn api_key_debug_redacts_secret() {
+        let key = ApiKey::new(SECRET).unwrap();
+        let rendered = format!("{key:?}");
+        assert!(
+            !rendered.contains(SECRET),
+            "Debug output leaked API key: {rendered}"
+        );
+    }
+
+    #[test]
+    fn api_key_display_redacts_secret() {
+        let key = ApiKey::new(SECRET).unwrap();
+        let rendered = format!("{key}");
+        assert!(
+            !rendered.contains(SECRET),
+            "Display output leaked API key: {rendered}"
+        );
+    }
+
+    #[test]
+    fn api_key_as_str_returns_secret() {
+        let key = ApiKey::new(SECRET).unwrap();
+        assert_eq!(key.as_str(), SECRET);
+    }
 }
