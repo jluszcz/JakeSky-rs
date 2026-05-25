@@ -4,6 +4,7 @@ use jakesky::ai::BedrockSummarizer;
 use jakesky::alert_summary;
 use jakesky::weather::{ApiKey, WeatherProvider, validate_coordinates};
 use jakesky::{APP_NAME, alexa};
+use jluszcz_rust_utils::cache::CacheMode;
 use jluszcz_rust_utils::{Verbosity, set_up_logger};
 use log::debug;
 use std::str::FromStr;
@@ -11,7 +12,7 @@ use std::str::FromStr;
 #[derive(Debug)]
 struct Args {
     verbosity: Verbosity,
-    use_cache: bool,
+    cache_mode: CacheMode,
     provider: WeatherProvider,
     api_key: ApiKey,
     latitude: f64,
@@ -79,7 +80,7 @@ fn create_command() -> Command {
 
 fn args_from_matches(matches: clap::ArgMatches) -> Args {
     let verbosity = matches.get_count("verbosity").into();
-    let use_cache = matches.get_flag("use-cache");
+    let cache_mode = matches.get_flag("use-cache").into();
     let latitude = *matches.get_one::<f64>("latitude").unwrap();
     let longitude = *matches.get_one::<f64>("longitude").unwrap();
     let api_key = ApiKey::new(matches.get_one::<String>("api-key").cloned().unwrap()).unwrap();
@@ -90,7 +91,7 @@ fn args_from_matches(matches: clap::ArgMatches) -> Args {
 
     Args {
         verbosity,
-        use_cache,
+        cache_mode,
         provider,
         api_key,
         latitude,
@@ -116,7 +117,12 @@ async fn main() -> Result<()> {
 
     let (weather, alerts) = args
         .provider
-        .get_weather(args.use_cache, &args.api_key, args.latitude, args.longitude)
+        .get_weather(
+            args.cache_mode,
+            &args.api_key,
+            args.latitude,
+            args.longitude,
+        )
         .await?;
 
     let summarizer = if alert_summary::needs_llm_fallback(&alerts) {
@@ -200,7 +206,7 @@ mod tests {
         let args = parse_args_from(&base_args()).unwrap();
 
         assert!(matches!(args.verbosity, Verbosity::Info));
-        assert!(!args.use_cache);
+        assert!(matches!(args.cache_mode, CacheMode::Disabled));
         assert_eq!(args.provider.id(), WeatherProvider::OpenWeather.id());
         assert_eq!(args.latitude, 40.7128);
         assert_eq!(args.longitude, 74.0060);
@@ -221,7 +227,7 @@ mod tests {
         args.push("--cache");
         let args = parse_args_from(&args).unwrap();
 
-        assert!(args.use_cache);
+        assert!(matches!(args.cache_mode, CacheMode::Enabled));
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
+use jluszcz_rust_utils::cache::CacheMode;
 use log::{debug, trace};
 use reqwest::Client;
 use std::fmt;
@@ -106,7 +107,7 @@ impl WeatherProvider {
 
     pub async fn get_weather(
         &self,
-        use_cache: bool,
+        cache_mode: CacheMode,
         api_key: &ApiKey,
         latitude: f64,
         longitude: f64,
@@ -117,10 +118,10 @@ impl WeatherProvider {
 
         let weather = match self {
             Self::AccuWeather => {
-                accu_weather::get_weather(use_cache, api_key.as_str(), latitude, longitude).await
+                accu_weather::get_weather(cache_mode, api_key.as_str(), latitude, longitude).await
             }
             Self::OpenWeather => {
-                open_weather::get_weather(use_cache, api_key.as_str(), latitude, longitude).await
+                open_weather::get_weather(cache_mode, api_key.as_str(), latitude, longitude).await
             }
         }?;
         debug!("{weather:?}");

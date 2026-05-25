@@ -2,6 +2,7 @@
 //! rule-based extraction in `alert_summary` doesn't find a phenomenon.
 
 use anyhow::{Result, anyhow};
+use aws_config::ConfigLoader;
 use aws_sdk_bedrockruntime::types::{ContentBlock, ConversationRole, Message};
 use log::{debug, warn};
 use std::time::Duration;
@@ -30,7 +31,7 @@ pub struct BedrockSummarizer {
 
 impl BedrockSummarizer {
     pub async fn from_env() -> Result<Self> {
-        let config = aws_config::from_env().load().await;
+        let config = ConfigLoader::default().load().await;
         let client = aws_sdk_bedrockruntime::Client::new(&config);
         let model_id =
             std::env::var("BEDROCK_MODEL_ID").unwrap_or_else(|_| DEFAULT_MODEL_ID.to_owned());
