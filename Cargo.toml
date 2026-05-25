@@ -6,7 +6,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-again = "0.1"
 anyhow = "1.0"
 aws-config = "1"
 aws-sdk-bedrockruntime = "1"
@@ -16,7 +15,6 @@ clap = { version = "4.5", features = ["env"] }
 jluszcz_rust_utils = { git = "https://github.com//jluszcz/rust-utils", features = ["query"] }
 lambda_runtime = "1.*"
 log = "0.4"
-reqwest = { version = "0.13", features = ["gzip", "json", "query"] }
 rustls = { version = "0.23", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
