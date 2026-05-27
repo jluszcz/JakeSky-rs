@@ -7,8 +7,8 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
-aws-config = "1"
-aws-sdk-bedrockruntime = "1"
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-bedrockruntime = { version = "1", features = ["behavior-version-latest"] }
 chrono = { version = "0", features = ["serde"] }
 chrono-tz = "0"
 clap = { version = "4", features = ["env"] }
