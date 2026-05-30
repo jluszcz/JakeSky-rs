@@ -47,27 +47,6 @@ resource "aws_iam_role" "lambda" {
   assume_role_policy = data.aws_iam_policy_document.jakesky_assume_role_policy_document.json
 }
 
-data "aws_iam_policy_document" "cw" {
-  statement {
-    actions   = ["cloudwatch:PutMetricData"]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "cloudwatch:namespace"
-      values   = ["jakesky"]
-    }
-  }
-}
-
-resource "aws_iam_policy" "cw" {
-  name   = "jakesky.cw"
-  policy = data.aws_iam_policy_document.cw.json
-}
-
-resource "aws_iam_role_policy_attachment" "cw" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.cw.arn
-}
 
 resource "aws_iam_role_policy_attachment" "basic_execution_role_attachment" {
   role       = aws_iam_role.lambda.name
