@@ -1,6 +1,6 @@
 *zip
+.envrc
 .terraform*
 /.claude
 /.idea
 /target
-env
