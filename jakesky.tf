@@ -9,8 +9,6 @@ terraform {
 # Sourced from environment variables named TF_VAR_${VAR_NAME}
 variable "jakesky_api_key" {}
 
-variable "jakesky_geocodio_key" {}
-
 variable "jakesky_skill_id" {}
 
 variable "jakesky_latitude" {}
