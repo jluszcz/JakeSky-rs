@@ -92,7 +92,7 @@ fn normalize_weather(weather: &str) -> String {
 async fn query_location(api_key: &ApiKey, latitude: f64, longitude: f64) -> Result<String> {
     let q = format!("{latitude},{longitude}");
     query::http_get(
-        "http://dataservice.accuweather.com/locations/v1/cities/geoposition/search",
+        "https://dataservice.accuweather.com/locations/v1/cities/geoposition/search",
         &[("apikey", api_key.as_str()), ("q", q.as_str())],
     )
     .await
@@ -100,7 +100,7 @@ async fn query_location(api_key: &ApiKey, latitude: f64, longitude: f64) -> Resu
 
 async fn query_current_conditions(api_key: &ApiKey, location_id: &str) -> Result<String> {
     query::http_get(
-        &format!("http://dataservice.accuweather.com/currentconditions/v1/{location_id}"),
+        &format!("https://dataservice.accuweather.com/currentconditions/v1/{location_id}"),
         &[("apikey", api_key.as_str()), ("details", "true")],
     )
     .await
@@ -108,7 +108,7 @@ async fn query_current_conditions(api_key: &ApiKey, location_id: &str) -> Result
 
 async fn query_weather(api_key: &ApiKey, location_id: &str) -> Result<String> {
     query::http_get(
-        &format!("http://dataservice.accuweather.com/forecasts/v1/hourly/12hour/{location_id}"),
+        &format!("https://dataservice.accuweather.com/forecasts/v1/hourly/12hour/{location_id}"),
         &[("apikey", api_key.as_str()), ("details", "true")],
     )
     .await

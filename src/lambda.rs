@@ -1,8 +1,7 @@
 #![recursion_limit = "256"]
 
 use anyhow::Context;
-use jakesky::ai::BedrockSummarizer;
-use jakesky::alert_summary;
+use jakesky::ai;
 use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::cache::CacheMode;
@@ -19,7 +18,7 @@ async fn main() -> Result<(), lambda_runtime::Error> {
     Ok(())
 }
 
-fn is_warmup_event(event: Value) -> bool {
+fn is_warmup_event(event: &Value) -> bool {
     "Scheduled Event"
         == event
             .get("detail-type")
@@ -28,7 +27,7 @@ fn is_warmup_event(event: Value) -> bool {
 }
 
 async fn function(event: LambdaEvent<Value>) -> Result<Value, lambda_runtime::Error> {
-    if is_warmup_event(event.payload) {
+    if is_warmup_event(&event.payload) {
         return Ok(json!({}));
     }
 
@@ -39,15 +38,11 @@ async fn function(event: LambdaEvent<Value>) -> Result<Value, lambda_runtime::Er
     let latitude = env::var("JAKESKY_LATITUDE")?.parse()?;
     let longitude = env::var("JAKESKY_LONGITUDE")?.parse()?;
 
-    let (weather, alerts) = WeatherProvider::OpenWeather
+    let report = WeatherProvider::OpenWeather
         .get_weather(CacheMode::Disabled, &api_key, latitude, longitude)
         .await?;
 
-    let summarizer = if alert_summary::needs_llm_fallback(&alerts) {
-        BedrockSummarizer::try_init().await
-    } else {
-        None
-    };
+    let summarizer = ai::summarizer_for(&report.alerts).await;
 
-    Ok(alexa::forecast(weather, alerts, summarizer.as_ref()).await?)
+    Ok(alexa::forecast(report.weather, report.alerts, summarizer.as_ref()).await?)
 }
