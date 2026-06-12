@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
-use jakesky::ai::BedrockSummarizer;
-use jakesky::alert_summary;
+use jakesky::ai;
 use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
 use jluszcz_rust_utils::cache::CacheMode;
@@ -21,7 +20,7 @@ struct Args {
 
 fn create_command() -> Command {
     Command::new("JakeSky-rs")
-        .version("0.1")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Jacob Luszcz")
         .arg(
             Arg::new("verbosity")
@@ -70,17 +69,18 @@ fn create_command() -> Command {
             Arg::new("provider")
                 .short('p')
                 .long("provider")
-                .value_parser([
-                    WeatherProvider::AccuWeather.id(),
-                    WeatherProvider::OpenWeather.id(),
-                ])
-                .default_value("openweather")
-                .help("Which weather provider to use"),
+                .value_parser(parse_provider)
+                .default_value(WeatherProvider::OpenWeather.id())
+                .help("Which weather provider to use (accuweather or openweather)"),
         )
 }
 
 fn parse_api_key(s: &str) -> Result<ApiKey, String> {
     ApiKey::new(s).map_err(|e| e.to_string())
+}
+
+fn parse_provider(s: &str) -> Result<WeatherProvider, String> {
+    WeatherProvider::from_str(s).map_err(|e| e.to_string())
 }
 
 fn args_from_matches(matches: clap::ArgMatches) -> Args {
@@ -89,10 +89,7 @@ fn args_from_matches(matches: clap::ArgMatches) -> Args {
     let latitude = *matches.get_one::<f64>("latitude").unwrap();
     let longitude = *matches.get_one::<f64>("longitude").unwrap();
     let api_key = matches.get_one::<ApiKey>("api-key").cloned().unwrap();
-    let provider = matches
-        .get_one::<String>("provider")
-        .and_then(|p| WeatherProvider::from_str(p).ok())
-        .unwrap();
+    let provider = *matches.get_one::<WeatherProvider>("provider").unwrap();
 
     Args {
         verbosity,
@@ -117,7 +114,7 @@ async fn main() -> Result<()> {
     set_up_logger(APP_NAME, module_path!(), args.verbosity)?;
     debug!("{args:?}");
 
-    let (weather, alerts) = args
+    let report = args
         .provider
         .get_weather(
             args.cache_mode,
@@ -127,13 +124,9 @@ async fn main() -> Result<()> {
         )
         .await?;
 
-    let summarizer = if alert_summary::needs_llm_fallback(&alerts) {
-        BedrockSummarizer::try_init().await
-    } else {
-        None
-    };
+    let summarizer = ai::summarizer_for(&report.alerts).await;
 
-    alexa::forecast(weather, alerts, summarizer.as_ref()).await?;
+    alexa::forecast(report.weather, report.alerts, summarizer.as_ref()).await?;
 
     Ok(())
 }
@@ -154,49 +147,14 @@ mod tests {
         ]
     }
 
-    // Test command without env var support for predictable testing
+    /// The real command with env-var support stripped, so ambient JAKESKY_*
+    /// variables can't leak into tests.
     fn create_test_command() -> Command {
-        Command::new("JakeSky-rs")
-            .version("0.1")
-            .author("Jacob Luszcz")
-            .arg(Arg::new("verbosity").short('v').action(ArgAction::Count))
-            .arg(
-                Arg::new("use-cache")
-                    .short('c')
-                    .long("cache")
-                    .action(ArgAction::SetTrue),
-            )
-            .arg(
-                Arg::new("latitude")
-                    .long("latitude")
-                    .alias("lat")
-                    .required(true)
-                    .value_parser(clap::value_parser!(f64)),
-            )
-            .arg(
-                Arg::new("longitude")
-                    .long("longitude")
-                    .alias("long")
-                    .required(true)
-                    .value_parser(clap::value_parser!(f64)),
-            )
-            .arg(
-                Arg::new("api-key")
-                    .short('a')
-                    .long("api-key")
-                    .required(true)
-                    .value_parser(parse_api_key),
-            )
-            .arg(
-                Arg::new("provider")
-                    .short('p')
-                    .long("provider")
-                    .value_parser([
-                        WeatherProvider::AccuWeather.id(),
-                        WeatherProvider::OpenWeather.id(),
-                    ])
-                    .default_value("openweather"),
-            )
+        ["latitude", "longitude", "api-key"]
+            .into_iter()
+            .fold(create_command(), |command, name| {
+                command.mut_arg(name, |arg| arg.env(None::<&'static str>))
+            })
     }
 
     fn parse_args_from(args: &[&str]) -> Result<Args, clap::Error> {

@@ -71,33 +71,28 @@ async fn to_forecast<S: AlertSummarize>(
     alerts: Vec<WeatherAlert>,
     summarizer: Option<&S>,
 ) -> Result<Vec<String>> {
-    if weather.is_empty() {
+    let [current, upcoming @ ..] = weather.as_slice() else {
         return Err(anyhow!("Weather cannot be empty"));
-    }
+    };
 
     let mut forecast = Vec::with_capacity(weather.len());
 
-    forecast.push(format!(
-        "It's currently {}.",
-        speakable_weather(weather.first().unwrap())
-    ));
+    forecast.push(format!("It's currently {}.", speakable_weather(current)));
 
-    for w in weather.iter().skip(1).take(weather.len().saturating_sub(2)) {
-        forecast.push(format!(
-            "At {}, it will be {}.",
-            speakable_timestamp(&w.timestamp),
-            speakable_weather(w)
-        ));
-    }
+    if let [middle @ .., last] = upcoming {
+        for w in middle {
+            forecast.push(format!(
+                "At {}, it will be {}.",
+                speakable_timestamp(&w.timestamp),
+                speakable_weather(w)
+            ));
+        }
 
-    if weather.len() > 1
-        && let Some(w) = weather.last()
-    {
         forecast.push(format!(
             "{} {} it will be {}.",
-            if weather.len() > 2 { "And at" } else { "At" },
-            speakable_timestamp(&w.timestamp),
-            speakable_weather(w),
+            if middle.is_empty() { "At" } else { "And at" },
+            speakable_timestamp(&last.timestamp),
+            speakable_weather(last),
         ));
     }
 
@@ -118,12 +113,12 @@ fn speakable_timestamp(timestamp: &DateTime<Tz>) -> String {
 
 fn speakable_weather(weather: &Weather) -> String {
     let temp = weather.apparent_temp.unwrap_or(weather.temp) as i64;
-    inner_speakable_weather(temp, &weather.summary)
+    format_temp_and_summary(temp, &weather.summary)
 }
 
-fn inner_speakable_weather(temp: i64, summary: &str) -> String {
+fn format_temp_and_summary(temp: i64, summary: &str) -> String {
     format!(
-        "{:.0}{} and {}",
+        "{}{} and {}",
         temp.abs(),
         if temp < 0 { " below" } else { "" },
         summary
@@ -223,8 +218,8 @@ mod test {
 
     #[test]
     fn test_speakable_weather() {
-        assert!(inner_speakable_weather(72, "foo").starts_with("72 and"));
-        assert!(inner_speakable_weather(-72, "foo").starts_with("72 below and"));
+        assert!(format_temp_and_summary(72, "foo").starts_with("72 and"));
+        assert!(format_temp_and_summary(-72, "foo").starts_with("72 below and"));
     }
 
     #[tokio::test]

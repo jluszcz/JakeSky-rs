@@ -96,7 +96,14 @@ pub struct WeatherForecast {
     pub alerts: Vec<WeatherAlert>,
 }
 
+/// A forecast filtered down to the hours worth announcing, plus any active alerts.
 #[derive(Debug)]
+pub struct WeatherReport {
+    pub weather: Vec<Weather>,
+    pub alerts: Vec<WeatherAlert>,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum WeatherProvider {
     AccuWeather,
     OpenWeather,
@@ -116,7 +123,7 @@ impl WeatherProvider {
         api_key: &ApiKey,
         latitude: f64,
         longitude: f64,
-    ) -> Result<(Vec<Weather>, Vec<WeatherAlert>)> {
+    ) -> Result<WeatherReport> {
         validate_coordinates(latitude, longitude)
             .with_context(|| format!("Invalid coordinates: lat={latitude}, lon={longitude}"))?;
 
@@ -156,7 +163,10 @@ impl WeatherProvider {
             }
         }
 
-        Ok((filtered, alerts))
+        Ok(WeatherReport {
+            weather: filtered,
+            alerts,
+        })
     }
 }
 

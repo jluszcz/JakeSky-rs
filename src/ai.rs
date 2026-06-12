@@ -1,10 +1,12 @@
 //! Bedrock-backed fallback for summarizing vague weather alerts when
 //! rule-based extraction in `alert_summary` doesn't find a phenomenon.
 
+use crate::alert_summary::needs_llm_fallback;
+use crate::weather::WeatherAlert;
 use anyhow::{Result, anyhow};
 use aws_config::ConfigLoader;
 use aws_sdk_bedrockruntime::types::{ContentBlock, ConversationRole, Message};
-use log::{debug, warn};
+use log::debug;
 use std::time::Duration;
 
 const DEFAULT_MODEL_ID: &str = "us.amazon.nova-2-lite-v1:0";
@@ -30,24 +32,16 @@ pub struct BedrockSummarizer {
 }
 
 impl BedrockSummarizer {
-    pub async fn from_env() -> Result<Self> {
+    /// Build a client from the ambient AWS configuration, honoring the
+    /// `BEDROCK_MODEL_ID` env var override. Credential or connectivity
+    /// problems surface later as per-call errors, which callers already
+    /// handle by falling back to the event name.
+    pub async fn from_env() -> Self {
         let config = ConfigLoader::default().load().await;
         let client = aws_sdk_bedrockruntime::Client::new(&config);
         let model_id =
             std::env::var("BEDROCK_MODEL_ID").unwrap_or_else(|_| DEFAULT_MODEL_ID.to_owned());
-        Ok(Self { client, model_id })
-    }
-
-    /// Initialize a summarizer; return None (with a warning) if Bedrock is
-    /// unreachable or not configured, so the caller can fall back gracefully.
-    pub async fn try_init() -> Option<Self> {
-        Self::from_env()
-            .await
-            .map_err(|e| {
-                warn!("Bedrock unavailable, skipping alert summarization fallback: {e}");
-                e
-            })
-            .ok()
+        Self { client, model_id }
     }
 
     async fn invoke(&self, event: &str, description: &str) -> Result<String> {
@@ -94,6 +88,16 @@ impl BedrockSummarizer {
 
         debug!("Bedrock summary for {event:?}: {text:?}");
         Ok(text)
+    }
+}
+
+/// Build a summarizer only when some alert actually needs the LLM fallback,
+/// so callers don't pay the AWS config/credential load otherwise.
+pub async fn summarizer_for(alerts: &[WeatherAlert]) -> Option<BedrockSummarizer> {
+    if needs_llm_fallback(alerts) {
+        Some(BedrockSummarizer::from_env().await)
+    } else {
+        None
     }
 }
 

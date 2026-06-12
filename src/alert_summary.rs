@@ -220,8 +220,8 @@ mod test {
 
     #[test]
     fn word_boundary_avoids_heat_false_positives() {
-        // "preheat" / "heating" — wait, "heating" starts with "heat" so it
-        // would match. We accept that; reject true false positives instead.
+        // contains_word matches by word prefix, so inflections like "heating"
+        // still match "heat" by design; "preheat" must not.
         assert_eq!(
             extract_phenomenon("The oven preheat cycle is unrelated"),
             None
