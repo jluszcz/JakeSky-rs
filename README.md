@@ -4,7 +4,7 @@ Returns the current weather, as well as a forecast for 8am, 12pm, and 6pm for th
 
 ## Status
 
-[![Status Badge](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-deploy.yml/badge.svg)](https://github.com/jluszcz/JakeSky-rs/actions/workflows/build-and-deploy.yml)
+[![Status Badge](https://github.com/jluszcz/JakeSky-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/jluszcz/JakeSky-rs/actions/workflows/ci.yml)
 
 ## Supported Weather Providers
 
