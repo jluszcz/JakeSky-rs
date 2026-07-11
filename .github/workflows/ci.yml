@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: CI
 
 on:
   push:
@@ -18,7 +18,8 @@ env:
   PROJECT: jakesky
 
 jobs:
-  build-and-package:
+  build:
+    name: Build, Test & Lint
     runs-on: ubuntu-24.04-arm
 
     permissions:
@@ -69,7 +70,7 @@ jobs:
           retention-days: 1
 
   deploy:
-    needs: build-and-package
+    needs: build
 
     runs-on: ubuntu-latest
 
