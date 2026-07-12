@@ -22,6 +22,7 @@ fn create_command() -> Command {
     Command::new("JakeSky-rs")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Jacob Luszcz")
+        .infer_long_args(true)
         .arg(
             Arg::new("verbosity")
                 .short('v')

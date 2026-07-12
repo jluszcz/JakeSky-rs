@@ -13,9 +13,10 @@ providers (AccuWeather and OpenWeather) and can run both as a CLI application an
 
 - `cargo build` - Build the project
 - `cargo fmt` - Format the source code
+- `cargo fmt --check` - Check formatting (same as CI)
 - `cargo test` - Run all tests
 - `cargo check` - Check for compilation errors without building
-- `cargo clippy -- -D warnings` - Run Rust linter for code quality checks
+- `cargo clippy --all-targets -- -D warnings` - Run Rust linter for code quality checks (same as CI)
 
 ### Running the Application
 - `cargo run --bin main -- --help` - Show CLI help
@@ -25,7 +26,7 @@ providers (AccuWeather and OpenWeather) and can run both as a CLI application an
 ### Target-Specific Commands (for AWS Lambda)
 - `cargo build --target aarch64-unknown-linux-musl` - Build for Lambda deployment
 - `cargo test --target aarch64-unknown-linux-musl` - Test with Lambda target
-- `cargo clippy --target aarch64-unknown-linux-musl -- -D warnings` - Lint for Lambda target
+- `cargo clippy --target aarch64-unknown-linux-musl --all-targets -- -D warnings` - Lint for Lambda target
 
 ## Architecture
 
