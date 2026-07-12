@@ -11,7 +11,7 @@ aws-config = { version = "1", features = ["behavior-version-latest"] }
 aws-sdk-bedrockruntime = { version = "1", features = ["behavior-version-latest"] }
 chrono = { version = "0", features = ["serde"] }
 chrono-tz = "0"
-clap = { version = "4", features = ["env"] }
+clap = { version = "4", features = ["derive", "env"] }
 jluszcz_rust_utils = { git = "https://github.com//jluszcz/rust-utils", features = ["query"] }
 lambda_runtime = "1"
 log = "0.4"
