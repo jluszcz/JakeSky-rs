@@ -1,79 +1,54 @@
 use anyhow::Result;
-use clap::{Arg, ArgAction, Command};
+use clap::Parser;
 use jakesky::ai;
 use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
-use jluszcz_rust_utils::cache::CacheMode;
-use jluszcz_rust_utils::{Verbosity, set_up_logger};
+use jluszcz_rust_utils::set_up_logger;
 use log::debug;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Parser)]
+#[command(name = "JakeSky-rs", version, author, infer_long_args = true)]
 struct Args {
-    verbosity: Verbosity,
-    cache_mode: CacheMode,
-    provider: WeatherProvider,
-    api_key: ApiKey,
-    latitude: f64,
-    longitude: f64,
-}
+    /// Increase verbosity (-v for debug, -vv for trace; max useful: -vv)
+    #[arg(short = 'v', action = clap::ArgAction::Count)]
+    verbosity: u8,
 
-fn create_command() -> Command {
-    Command::new("JakeSky-rs")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author("Jacob Luszcz")
-        .infer_long_args(true)
-        .arg(
-            Arg::new("verbosity")
-                .short('v')
-                .action(ArgAction::Count)
-                .help("Increase verbosity (-v for debug, -vv for trace; max useful: -vv)"),
-        )
-        .arg(
-            Arg::new("use-cache")
-                .short('c')
-                .long("cache")
-                .action(ArgAction::SetTrue)
-                .help("Use cached values, if present, rather than querying remote services."),
-        )
-        .arg(
-            Arg::new("latitude")
-                .long("latitude")
-                .alias("lat")
-                .required(true)
-                .env("JAKESKY_LATITUDE")
-                .hide_env_values(true)
-                .value_parser(clap::value_parser!(f64))
-                .help("Latitude of location to get weather for"),
-        )
-        .arg(
-            Arg::new("longitude")
-                .long("longitude")
-                .alias("long")
-                .required(true)
-                .env("JAKESKY_LONGITUDE")
-                .hide_env_values(true)
-                .value_parser(clap::value_parser!(f64))
-                .help("Longitude of location to get weather for"),
-        )
-        .arg(
-            Arg::new("api-key")
-                .short('a')
-                .long("api-key")
-                .required(true)
-                .env("JAKESKY_API_KEY")
-                .hide_env_values(true)
-                .value_parser(parse_api_key)
-                .help("API key to use with the weather provider"),
-        )
-        .arg(
-            Arg::new("provider")
-                .short('p')
-                .long("provider")
-                .value_parser(parse_provider)
-                .default_value(WeatherProvider::OpenWeather.id())
-                .help("Which weather provider to use (accuweather or openweather)"),
-        )
+    /// Use cached values, if present, rather than querying remote services.
+    #[arg(short = 'c', long = "cache")]
+    use_cache: bool,
+
+    /// Latitude of location to get weather for
+    #[arg(long, alias = "lat", env = "JAKESKY_LATITUDE", hide_env_values = true)]
+    latitude: f64,
+
+    /// Longitude of location to get weather for
+    #[arg(
+        long,
+        alias = "long",
+        env = "JAKESKY_LONGITUDE",
+        hide_env_values = true
+    )]
+    longitude: f64,
+
+    /// API key to use with the weather provider
+    #[arg(
+        short = 'a',
+        long,
+        env = "JAKESKY_API_KEY",
+        hide_env_values = true,
+        value_parser = parse_api_key
+    )]
+    api_key: ApiKey,
+
+    /// Which weather provider to use (accuweather or openweather)
+    #[arg(
+        short = 'p',
+        long,
+        value_parser = parse_provider,
+        default_value = WeatherProvider::OpenWeather.id()
+    )]
+    provider: WeatherProvider,
 }
 
 fn parse_api_key(s: &str) -> Result<ApiKey, String> {
@@ -84,27 +59,8 @@ fn parse_provider(s: &str) -> Result<WeatherProvider, String> {
     WeatherProvider::from_str(s).map_err(|e| e.to_string())
 }
 
-fn args_from_matches(matches: clap::ArgMatches) -> Args {
-    let verbosity = matches.get_count("verbosity").into();
-    let cache_mode = matches.get_flag("use-cache").into();
-    let latitude = *matches.get_one::<f64>("latitude").unwrap();
-    let longitude = *matches.get_one::<f64>("longitude").unwrap();
-    let api_key = matches.get_one::<ApiKey>("api-key").cloned().unwrap();
-    let provider = *matches.get_one::<WeatherProvider>("provider").unwrap();
-
-    Args {
-        verbosity,
-        cache_mode,
-        provider,
-        api_key,
-        latitude,
-        longitude,
-    }
-}
-
 fn parse_args() -> Args {
-    let matches = create_command().get_matches();
-    args_from_matches(matches)
+    Args::parse()
 }
 
 #[tokio::main]
@@ -118,7 +74,7 @@ async fn main() -> Result<()> {
     let report = args
         .provider
         .get_weather(
-            args.cache_mode,
+            args.use_cache.into(),
             &args.api_key,
             args.latitude,
             args.longitude,
@@ -135,6 +91,9 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::{Command, CommandFactory, FromArgMatches};
+    use jluszcz_rust_utils::Verbosity;
+    use jluszcz_rust_utils::cache::CacheMode;
 
     fn base_args() -> Vec<&'static str> {
         vec![
@@ -151,24 +110,27 @@ mod tests {
     /// The real command with env-var support stripped, so ambient JAKESKY_*
     /// variables can't leak into tests.
     fn create_test_command() -> Command {
-        ["latitude", "longitude", "api-key"]
+        ["latitude", "longitude", "api_key"]
             .into_iter()
-            .fold(create_command(), |command, name| {
+            .fold(Args::command(), |command, name| {
                 command.mut_arg(name, |arg| arg.env(None::<&'static str>))
             })
     }
 
     fn parse_args_from(args: &[&str]) -> Result<Args, clap::Error> {
         let matches = create_test_command().try_get_matches_from(args)?;
-        Ok(args_from_matches(matches))
+        Args::from_arg_matches(&matches)
     }
 
     #[test]
     fn test_parse_args_minimal() {
         let args = parse_args_from(&base_args()).unwrap();
 
-        assert!(matches!(args.verbosity, Verbosity::Info));
-        assert!(matches!(args.cache_mode, CacheMode::Disabled));
+        assert!(matches!(Verbosity::from(args.verbosity), Verbosity::Info));
+        assert!(matches!(
+            CacheMode::from(args.use_cache),
+            CacheMode::Disabled
+        ));
         assert_eq!(args.provider.id(), WeatherProvider::OpenWeather.id());
         assert_eq!(args.latitude, 40.7128);
         assert_eq!(args.longitude, 74.0060);
@@ -180,7 +142,7 @@ mod tests {
         args.push("-vv");
         let args = parse_args_from(&args).unwrap();
 
-        assert!(matches!(args.verbosity, Verbosity::Trace));
+        assert!(matches!(Verbosity::from(args.verbosity), Verbosity::Trace));
     }
 
     #[test]
@@ -189,7 +151,10 @@ mod tests {
         args.push("--cache");
         let args = parse_args_from(&args).unwrap();
 
-        assert!(matches!(args.cache_mode, CacheMode::Enabled));
+        assert!(matches!(
+            CacheMode::from(args.use_cache),
+            CacheMode::Enabled
+        ));
     }
 
     #[test]
