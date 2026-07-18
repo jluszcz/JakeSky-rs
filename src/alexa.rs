@@ -637,6 +637,35 @@ mod test {
         );
     }
 
+    #[test]
+    fn test_format_alert_timerange_midnight_start_cross_day() {
+        use chrono::Duration;
+
+        // A future alert starting at the upcoming midnight (00:00 tomorrow) and
+        // ending on a later day exercises the cross-day "from … through …"
+        // branch, routing the midnight `start` through speakable_moment so it
+        // reads "midnight tonight" rather than "midnight tomorrow".
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let tomorrow = now.date_naive() + Duration::days(1);
+        let day_after_tomorrow = now.date_naive() + Duration::days(2);
+        let expected_end_day = day_after_tomorrow.format("%A").to_string();
+
+        let start = Tz::UTC
+            .from_local_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+        let end = Tz::UTC
+            .from_local_datetime(&day_after_tomorrow.and_hms_opt(8, 0, 0).unwrap())
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        assert_eq!(
+            result,
+            format!("from midnight tonight through 8am {}", expected_end_day),
+            "Expected midnight start to read 'midnight tonight', got: {}",
+            result
+        );
+    }
+
     #[tokio::test]
     async fn test_vague_alert_uses_stub_summarizer() -> Result<()> {
         use chrono::Duration;
