@@ -2,7 +2,7 @@ use crate::ai::AlertSummarize;
 use crate::alert_summary::{extract_phenomenon, is_vague_event};
 use crate::weather::{Weather, WeatherAlert};
 use anyhow::{Result, anyhow};
-use chrono::{DateTime, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Duration, NaiveDate, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use log::{info, warn};
 use serde_json::{Value, json};
@@ -168,27 +168,55 @@ fn format_alert_timerange(start: &DateTime<Tz>, end: &DateTime<Tz>) -> String {
 
     // Omit start time if alert started in the past
     if start < &now {
-        format!("until {} {}", end_time, end_day)
+        format!("until {}", speakable_moment(end, &now))
     } else if start_day == end_day {
         format!("from {} through {} {}", start_time, end_time, end_day)
     } else {
         format!(
-            "from {} {} through {} {}",
-            start_time, start_day, end_time, end_day
+            "from {} through {}",
+            speakable_moment(start, &now),
+            speakable_moment(end, &now)
         )
     }
 }
 
+/// Spoken "time day" for a moment, e.g. "8am tomorrow" or "midnight tonight".
+///
+/// Midnight (00:00) is reframed as belonging to the previous evening: a
+/// listener hears "midnight tonight" for the upcoming midnight, not "midnight
+/// tomorrow", since the instant caps today rather than opening tomorrow.
+fn speakable_moment(dt: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
+    if dt.hour() == 0 {
+        return format!("midnight {}", night_label(dt, now));
+    }
+    format!("{} {}", speakable_timestamp(dt), relative_day(dt, now))
+}
+
+/// Day label for a midnight, framed as the night it caps (the previous day).
+fn night_label(midnight: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
+    let evening_date = midnight.date_naive() - Duration::days(1);
+    match relative_day_from_date(evening_date, now.date_naive()).as_str() {
+        "today" => "tonight".to_string(),
+        "yesterday" => "last night".to_string(),
+        "tomorrow" => "tomorrow night".to_string(),
+        weekday => format!("{} night", weekday),
+    }
+}
+
 fn relative_day(dt: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
-    let days_diff = dt
-        .date_naive()
-        .signed_duration_since(now.date_naive())
-        .num_days();
+    relative_day_from_date(dt.date_naive(), now.date_naive())
+}
+
+/// Day label ("today", "tomorrow", "yesterday", or the weekday name) for a
+/// calendar date relative to another, computed purely on `NaiveDate` so it's
+/// unaffected by DST transitions in either date's original timezone.
+fn relative_day_from_date(date: NaiveDate, now: NaiveDate) -> String {
+    let days_diff = date.signed_duration_since(now).num_days();
     match days_diff {
         0 => "today".to_string(),
         1 => "tomorrow".to_string(),
         -1 => "yesterday".to_string(),
-        _ => dt.format("%A").to_string(), // Day of week
+        _ => date.format("%A").to_string(), // Day of week
     }
 }
 
@@ -562,6 +590,80 @@ mod test {
         );
         assert!(result.contains("10am"));
         assert!(result.contains("today"));
+    }
+
+    #[test]
+    fn test_format_alert_timerange_midnight_ending_tonight() {
+        use chrono::Duration;
+
+        // An alert ending at the upcoming midnight (00:00 tomorrow) should read
+        // "midnight tonight", not "midnight tomorrow" — the instant belongs to
+        // the end of today.
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let tomorrow = now.date_naive() + Duration::days(1);
+
+        let start = now - Duration::hours(2); // started in the past
+        let end = Tz::UTC
+            .from_local_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        assert_eq!(
+            result, "until midnight tonight",
+            "Expected 'until midnight tonight', got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_alert_timerange_midnight_ending_tomorrow_night() {
+        use chrono::Duration;
+
+        // An alert ending at 00:00 the day after tomorrow caps tomorrow night,
+        // so it should read "midnight tomorrow night".
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let day_after_tomorrow = now.date_naive() + Duration::days(2);
+
+        let start = now - Duration::hours(2); // started in the past
+        let end = Tz::UTC
+            .from_local_datetime(&day_after_tomorrow.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        assert_eq!(
+            result, "until midnight tomorrow night",
+            "Expected 'until midnight tomorrow night', got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_format_alert_timerange_midnight_start_cross_day() {
+        use chrono::Duration;
+
+        // A future alert starting at the upcoming midnight (00:00 tomorrow) and
+        // ending on a later day exercises the cross-day "from … through …"
+        // branch, routing the midnight `start` through speakable_moment so it
+        // reads "midnight tonight" rather than "midnight tomorrow".
+        let now = Utc::now().with_timezone(&Tz::UTC);
+        let tomorrow = now.date_naive() + Duration::days(1);
+        let day_after_tomorrow = now.date_naive() + Duration::days(2);
+        let expected_end_day = day_after_tomorrow.format("%A").to_string();
+
+        let start = Tz::UTC
+            .from_local_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap();
+        let end = Tz::UTC
+            .from_local_datetime(&day_after_tomorrow.and_hms_opt(8, 0, 0).unwrap())
+            .unwrap();
+
+        let result = format_alert_timerange(&start, &end);
+        assert_eq!(
+            result,
+            format!("from midnight tonight through 8am {}", expected_end_day),
+            "Expected midnight start to read 'midnight tonight', got: {}",
+            result
+        );
     }
 
     #[tokio::test]
