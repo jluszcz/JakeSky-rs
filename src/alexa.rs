@@ -2,7 +2,7 @@ use crate::ai::AlertSummarize;
 use crate::alert_summary::{extract_phenomenon, is_vague_event};
 use crate::weather::{Weather, WeatherAlert};
 use anyhow::{Result, anyhow};
-use chrono::{DateTime, Duration, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Duration, NaiveDate, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use log::{info, warn};
 use serde_json::{Value, json};
@@ -194,8 +194,8 @@ fn speakable_moment(dt: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
 
 /// Day label for a midnight, framed as the night it caps (the previous day).
 fn night_label(midnight: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
-    let evening = *midnight - Duration::days(1);
-    match relative_day(&evening, now).as_str() {
+    let evening_date = midnight.date_naive() - Duration::days(1);
+    match relative_day_from_date(evening_date, now.date_naive()).as_str() {
         "today" => "tonight".to_string(),
         "yesterday" => "last night".to_string(),
         "tomorrow" => "tomorrow night".to_string(),
@@ -204,15 +204,19 @@ fn night_label(midnight: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
 }
 
 fn relative_day(dt: &DateTime<Tz>, now: &DateTime<Tz>) -> String {
-    let days_diff = dt
-        .date_naive()
-        .signed_duration_since(now.date_naive())
-        .num_days();
+    relative_day_from_date(dt.date_naive(), now.date_naive())
+}
+
+/// Day label ("today", "tomorrow", "yesterday", or the weekday name) for a
+/// calendar date relative to another, computed purely on `NaiveDate` so it's
+/// unaffected by DST transitions in either date's original timezone.
+fn relative_day_from_date(date: NaiveDate, now: NaiveDate) -> String {
+    let days_diff = date.signed_duration_since(now).num_days();
     match days_diff {
         0 => "today".to_string(),
         1 => "tomorrow".to_string(),
         -1 => "yesterday".to_string(),
-        _ => dt.format("%A").to_string(), // Day of week
+        _ => date.format("%A").to_string(), // Day of week
     }
 }
 
