@@ -89,9 +89,9 @@ resource "aws_lambda_function" "jakesky" {
 
   environment {
     variables = {
-      JAKESKY_API_KEY      = var.jakesky_api_key
-      JAKESKY_LATITUDE     = var.jakesky_latitude
-      JAKESKY_LONGITUDE    = var.jakesky_longitude
+      JAKESKY_API_KEY   = var.jakesky_api_key
+      JAKESKY_LATITUDE  = var.jakesky_latitude
+      JAKESKY_LONGITUDE = var.jakesky_longitude
     }
   }
 }
@@ -153,4 +153,39 @@ resource "aws_iam_role" "github" {
 resource "aws_iam_role_policy_attachment" "github" {
   role       = aws_iam_role.github.name
   policy_arn = aws_iam_policy.github.arn
+}
+
+resource "aws_iam_policy" "github_deploy" {
+  name   = "jakesky.github-deploy"
+  policy = data.aws_iam_policy_document.github.json
+}
+
+resource "aws_iam_role" "github_deploy" {
+  name = "jakesky.github-deploy"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Federated = data.aws_iam_openid_connect_provider.github.arn
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" : "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" : "repo:jluszcz/JakeSky-rs:*"
+          },
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_deploy" {
+  role       = aws_iam_role.github_deploy.name
+  policy_arn = aws_iam_policy.github_deploy.arn
 }
