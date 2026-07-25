@@ -13,10 +13,18 @@ providers (AccuWeather and OpenWeather) and can run both as a CLI application an
 
 - `cargo build` - Build the project
 - `cargo fmt` - Format the source code
-- `cargo fmt --check` - Check formatting (same as CI)
+- `cargo fmt --check` - Check formatting
 - `cargo test` - Run all tests
 - `cargo check` - Check for compilation errors without building
-- `cargo clippy --all-targets -- -D warnings` - Run Rust linter for code quality checks (same as CI)
+- `cargo clippy --all-targets -- -D warnings` - Run Rust linter for code quality checks
+- `pre-commit run --all-files` - Run the configured hooks (includes `cargo fmt --check`)
+
+CI does not run these steps locally-style: `.github/workflows/ci.yml` is a thin caller of
+`jluszcz/github-utils/.github/workflows/rust-ci.yml@v1`, which runs build, test, `cargo fmt --check`, and
+`cargo clippy --all-targets -- -D warnings` on `ubuntu-24.04-arm` against the
+`aarch64-unknown-linux-musl` target. To reproduce a CI failure exactly, use the target-specific commands below.
+On a push to `main`, CI additionally packages and deploys the Lambda via the shared `lambda-package` and
+`deploy-lambda` workflows.
 
 ### Running the Application
 - `cargo run --bin main -- --help` - Show CLI help
