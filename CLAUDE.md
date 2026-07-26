@@ -47,10 +47,36 @@ On a push to `main`, CI additionally packages and deploys the Lambda via the sha
 - `weather/accu_weather.rs` - AccuWeather API implementation
 - `weather/open_weather.rs` - OpenWeather API implementation
 - `alexa.rs` - Alexa response formatting and voice-friendly output generation
+- `alert_summary.rs` - Rule-based summarization of vague weather alerts
+- `ai.rs` - Bedrock-backed fallback for the alerts the rules can't resolve
+
+### Alert Summarization
+
+NWS event names like "Special Weather Statement" say nothing useful out loud, so alerts go through two stages before
+they are read:
+
+1. **Rules first** (`alert_summary.rs`). `is_vague_event` identifies the useless event names; `extract_phenomenon`
+   mines the alert *description* for what is actually being warned about.
+2. **Bedrock only if the rules come up empty** (`ai.rs`). `summarizer_for` calls `needs_llm_fallback` and returns
+   `None` when every alert already resolved — deliberately, so a run with no vague alerts never loads AWS config or
+   credentials. `alexa::forecast` takes `Option<&S>` and falls back to the raw event name when it is `None` or the
+   call fails.
+
+Three constraints in `ai.rs` are load-bearing and easy to undo by accident:
+
+- **`BEDROCK_TIMEOUT` is 2 seconds** against a 10-second Lambda timeout, because the response still has to be
+  rendered afterwards. Failing fast into the event-name fallback beats a voice request that times out.
+- **`MAX_SUMMARY_WORDS` caps what gets read aloud**, so a misbehaving model cannot dump a sentence into TTS.
+- **The alert description is untrusted input.** It is NWS-provided but arrives over the network, and the prompt
+  delimits it and tells the model not to follow instructions inside it. Keep that framing if you touch the prompt.
+
+`BEDROCK_MODEL_ID` overrides the default model (`us.amazon.nova-2-lite-v1:0`).
 
 ### Key Architecture Patterns
 - Weather providers implement a common interface via the `WeatherProvider` enum
-- The system filters hourly forecasts to specific times of interest (8am, 12pm, 6pm, optionally 10pm on weekends)
+- The system filters hourly forecasts to specific times of interest: 8am, 12pm, and 6pm. `hours_of_interest` also
+  supports adding 10pm on weekends, but **every production caller passes `add_weekend_hour: false`**
+  (`weather/mod.rs`), so that behavior is currently reachable only from tests
 - Caching is implemented at the provider level using temporary files
 - Lambda function handles AWS EventBridge warmup events
 - All weather data is normalized to a common `Weather` struct regardless of provider
@@ -59,3 +85,4 @@ On a push to `main`, CI additionally packages and deploys the Lambda via the sha
 - `JAKESKY_API_KEY` - Weather provider API key
 - `JAKESKY_LATITUDE` - Location latitude
 - `JAKESKY_LONGITUDE` - Location longitude
+- `BEDROCK_MODEL_ID` - Overrides the alert-summarization model; defaults to `us.amazon.nova-2-lite-v1:0`

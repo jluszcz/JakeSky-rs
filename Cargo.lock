@@ -1584,7 +1584,7 @@ dependencies = [
 [[package]]
 name = "jluszcz_rust_utils"
 version = "0.1.0"
-source = "git+https://github.com//jluszcz/rust-utils#c7acd9a730b39705e1b264a757ea91746e295902"
+source = "git+https://github.com/jluszcz/rust-utils#cd35b4798c21390684152749ab6eb6f977283dbb"
 dependencies = [
  "anyhow",
  "backon",
