@@ -115,7 +115,9 @@ data "aws_iam_openid_connect_provider" "github" {
 
 data "aws_iam_policy_document" "github" {
   statement {
-    actions   = ["s3:PutObject"]
+    # GetObject too: update-function-code makes Lambda fetch the artifact with
+    # the caller's credentials, not the function's execution role.
+    actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${data.aws_s3_bucket.code_bucket.arn}/jakesky.zip"]
   }
 
