@@ -3,7 +3,7 @@ use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, TimeZone, Utc};
 use chrono_tz::Tz;
-use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query};
+use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query_json};
 use jluszcz_rust_utils::query;
 use serde::Deserialize;
 use std::str::FromStr;
@@ -139,7 +139,7 @@ pub async fn get_weather(
 ) -> Result<WeatherForecast> {
     let cache_path = dated_cache_path(&format!("openweather_{latitude:.1}_{longitude:.1}"));
 
-    let response_str = try_cached_query(cache_mode, &cache_path, || {
+    let mut response: Response = try_cached_query_json(cache_mode, &cache_path, || {
         query(api_key, latitude, longitude)
     })
     .await
@@ -148,9 +148,6 @@ pub async fn get_weather(
             "Failed to get weather data from OpenWeather for coordinates {latitude}, {longitude}"
         )
     })?;
-
-    let mut response: Response = serde_json::from_str(&response_str)
-        .with_context(|| "Failed to deserialize JSON response from OpenWeather API")?;
 
     let timezone = Tz::from_str(&response.timezone).with_context(|| {
         format!(

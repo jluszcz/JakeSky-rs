@@ -3,16 +3,16 @@ use clap::Parser;
 use jakesky::ai;
 use jakesky::weather::{ApiKey, WeatherProvider};
 use jakesky::{APP_NAME, alexa};
-use jluszcz_rust_utils::set_up_logger;
+use jluszcz_rust_utils::cli::VerbosityArgs;
+use jluszcz_rust_utils::{set_up_logger, tls};
 use log::debug;
 use std::str::FromStr;
 
 #[derive(Debug, Parser)]
 #[command(name = "JakeSky-rs", version, author, infer_long_args = true)]
 struct Args {
-    /// Increase verbosity (-v for debug, -vv for trace; max useful: -vv)
-    #[arg(short = 'v', action = clap::ArgAction::Count)]
-    verbosity: u8,
+    #[command(flatten)]
+    verbosity: VerbosityArgs,
 
     /// Use cached values, if present, rather than querying remote services.
     #[arg(short = 'c', long = "cache")]
@@ -65,7 +65,7 @@ fn parse_args() -> Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    tls::install_default_provider();
 
     let args = parse_args();
     set_up_logger(APP_NAME, module_path!(), args.verbosity)?;
