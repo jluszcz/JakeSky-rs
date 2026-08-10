@@ -4,12 +4,10 @@
 use crate::alert_summary::needs_llm_fallback;
 use crate::weather::WeatherAlert;
 use anyhow::{Result, anyhow};
-use aws_config::ConfigLoader;
-use aws_sdk_bedrockruntime::types::{ContentBlock, ConversationRole, Message};
+use jluszcz_rust_utils::bedrock::BedrockClient;
 use log::debug;
 use std::time::Duration;
 
-const DEFAULT_MODEL_ID: &str = "us.amazon.nova-2-lite-v1:0";
 /// Bedrock call budget. The Lambda timeout is 10s and we still need to
 /// render the response, so fail fast into the event-name fallback rather
 /// than blocking the voice response.
@@ -27,21 +25,17 @@ pub trait AlertSummarize {
 }
 
 pub struct BedrockSummarizer {
-    client: aws_sdk_bedrockruntime::Client,
-    model_id: String,
+    client: BedrockClient,
 }
 
 impl BedrockSummarizer {
-    /// Build a client from the ambient AWS configuration, honoring the
-    /// `BEDROCK_MODEL_ID` env var override. Credential or connectivity
-    /// problems surface later as per-call errors, which callers already
-    /// handle by falling back to the event name.
+    /// Build a client from the ambient AWS configuration. Credential or
+    /// connectivity problems surface later as per-call errors, which callers
+    /// already handle by falling back to the event name.
     pub async fn from_env() -> Self {
-        let config = ConfigLoader::default().load().await;
-        let client = aws_sdk_bedrockruntime::Client::new(&config);
-        let model_id =
-            std::env::var("BEDROCK_MODEL_ID").unwrap_or_else(|_| DEFAULT_MODEL_ID.to_owned());
-        Self { client, model_id }
+        Self {
+            client: BedrockClient::from_env().await,
+        }
     }
 
     async fn invoke(&self, event: &str, description: &str) -> Result<String> {
@@ -61,26 +55,12 @@ impl BedrockSummarizer {
              <description>\n{description}\n</description>"
         );
 
-        let message = Message::builder()
-            .role(ConversationRole::User)
-            .content(ContentBlock::Text(prompt))
-            .build()?;
-
-        let response = self
-            .client
-            .converse()
-            .model_id(&self.model_id)
-            .messages(message)
-            .send()
-            .await?;
-
-        let text = response
-            .output()
-            .and_then(|o| o.as_message().ok())
-            .and_then(|m| m.content().first())
-            .and_then(|b| b.as_text().ok())
-            .map(|s| clean_phrase(s))
-            .ok_or_else(|| anyhow!("Unexpected Bedrock response structure"))?;
+        let text = clean_phrase(
+            &self
+                .client
+                .generate_with_timeout(&prompt, BEDROCK_TIMEOUT)
+                .await?,
+        );
 
         if text.is_empty() {
             return Err(anyhow!("Bedrock returned empty summary"));
@@ -103,12 +83,7 @@ pub async fn summarizer_for(alerts: &[WeatherAlert]) -> Option<BedrockSummarizer
 
 impl AlertSummarize for BedrockSummarizer {
     async fn summarize_alert(&self, event: &str, description: &str) -> Result<String> {
-        match tokio::time::timeout(BEDROCK_TIMEOUT, self.invoke(event, description)).await {
-            Ok(result) => result,
-            Err(_) => Err(anyhow!(
-                "Bedrock summarization timed out after {BEDROCK_TIMEOUT:?}"
-            )),
-        }
+        self.invoke(event, description).await
     }
 }
 

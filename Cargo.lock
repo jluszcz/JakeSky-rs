@@ -1399,7 +1399,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -1567,15 +1567,12 @@ name = "jakesky"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "aws-config",
- "aws-sdk-bedrockruntime",
  "chrono",
  "chrono-tz",
  "clap",
  "jluszcz_rust_utils",
  "lambda_runtime",
  "log",
- "rustls 0.23.42",
  "serde",
  "serde_json",
  "tokio",
@@ -1584,16 +1581,22 @@ dependencies = [
 [[package]]
 name = "jluszcz_rust_utils"
 version = "0.1.0"
-source = "git+https://github.com/jluszcz/rust-utils#fbf639672d56057c4b742b8a3d38cb9d936c775c"
+source = "git+https://github.com/jluszcz/rust-utils#61df107e8ef307adce65a2b1e335912dc6772bd9"
 dependencies = [
  "anyhow",
+ "aws-config",
+ "aws-sdk-bedrockruntime",
  "backon",
  "chrono",
+ "clap",
  "fern",
+ "lambda_runtime",
  "log",
  "reqwest",
  "rustc_version",
+ "rustls 0.23.42",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
@@ -1930,7 +1933,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls 0.23.42",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "thiserror",
  "tokio",
  "tracing",
@@ -1969,7 +1972,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.4",
  "tracing",
  "windows-sys 0.61.2",
 ]

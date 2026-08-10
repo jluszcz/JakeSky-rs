@@ -3,7 +3,9 @@ use anyhow::{Context, Result, anyhow};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
-use jluszcz_rust_utils::cache::{CacheMode, dated_cache_path, try_cached_query};
+use jluszcz_rust_utils::cache::{
+    CacheMode, dated_cache_path, try_cached_query, try_cached_query_json,
+};
 use jluszcz_rust_utils::query;
 use serde::Deserialize;
 use std::str::FromStr;
@@ -127,16 +129,14 @@ pub async fn get_weather(
     let current_conditions_cache_path =
         dated_cache_path(&format!("accuweather-curr_{token_suffix}"));
 
-    let location = try_cached_query(cache_mode, &location_cache_path, || {
-        query_location(api_key, latitude, longitude)
-    })
-    .await
-    .with_context(|| {
-        format!("Failed to get location data for coordinates {latitude}, {longitude}")
-    })?;
-
-    let location: LocationResponse = serde_json::from_str(&location)
-        .with_context(|| "Failed to parse location response from AccuWeather API")?;
+    let location: LocationResponse =
+        try_cached_query_json(cache_mode, &location_cache_path, || {
+            query_location(api_key, latitude, longitude)
+        })
+        .await
+        .with_context(|| {
+            format!("Failed to get location data for coordinates {latitude}, {longitude}")
+        })?;
 
     let timezone = Tz::from_str(&location.timezone.name).with_context(|| {
         format!(
