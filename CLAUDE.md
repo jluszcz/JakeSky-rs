@@ -26,6 +26,8 @@ CI does not run these steps locally-style: `.github/workflows/ci.yml` is a thin 
 On a push to `main`, CI additionally packages and deploys the Lambda via the shared `lambda-package` and
 `deploy-lambda` workflows.
 
+`.github/workflows/ci.yml` also calls the shared `terraform-ci.yml`, which runs `terraform fmt -check -recursive` and `terraform validate` with `-backend=false` — the same checks the `terraform_fmt`/`terraform_validate` pre-commit hooks run locally. Terraform is never *applied* by CI.
+
 ### Running the Application
 - `cargo run --bin main -- --help` - Show CLI help
 - `cargo run --bin main -- --latitude <lat> --longitude <lon> --api-key <key> --provider <provider>` - Run CLI
