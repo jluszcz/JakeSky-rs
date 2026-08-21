@@ -43,3 +43,6 @@ jobs:
       project: jakesky
     secrets:
       aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+
+  terraform:
+    uses: jluszcz/github-utils/.github/workflows/terraform-ci.yml@v2
