@@ -26,7 +26,9 @@ CI does not run these steps locally-style: `.github/workflows/ci.yml` is a thin 
 On a push to `main`, CI additionally packages and deploys the Lambda via the shared `lambda-package` and
 `deploy-lambda` workflows.
 
-`.github/workflows/ci.yml` also calls the shared `terraform-ci.yml`, which runs `terraform fmt -check -recursive` and `terraform validate` with `-backend=false` — the same checks the `terraform_fmt`/`terraform_validate` pre-commit hooks run locally. Terraform is never *applied* by CI.
+`.github/workflows/ci.yml` also calls the shared `terraform-ci.yml`, which runs `terraform fmt -check -recursive`, then `terraform init -backend=false` and `terraform validate` — the same checks the `terraform_fmt`/`terraform_validate` pre-commit hooks run locally. Terraform is never *applied* by CI.
+
+The Terraform check is deliberately absent from `on.push.paths`. That filter gates the *whole* workflow, and `package`/`deploy` are gated only by `if: github.event_name == 'push'` — listing `.tf` there would make a Terraform-only push to `main` deploy the Lambda. The `pull_request` trigger has no path filter, so the check still runs on every PR, which is where it gates.
 
 ### Running the Application
 - `cargo run --bin main -- --help` - Show CLI help
