@@ -1,3 +1,4 @@
+use crate::alert_summary;
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::Tz;
@@ -138,7 +139,7 @@ impl WeatherProvider {
         debug!("{weather:?}");
 
         let now = Utc::now().with_timezone(&weather.timezone);
-        let alerts = weather.alerts;
+        let alerts = alert_summary::retain_relevant(weather.alerts);
 
         let hours_of_interest = hours_of_interest(now, None, false);
 

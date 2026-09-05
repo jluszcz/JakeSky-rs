@@ -56,12 +56,17 @@ The Terraform check is deliberately absent from `on.push.paths`. That filter gat
 
 ### Alert Summarization
 
-NWS event names like "Special Weather Statement" say nothing useful out loud, so alerts go through two stages before
-they are read:
+NWS event names like "Special Weather Statement" say nothing useful out loud, so alerts go through three stages
+before they are read:
 
-1. **Rules first** (`alert_summary.rs`). `is_vague_event` identifies the useless event names; `extract_phenomenon`
+1. **Exclusion** (`alert_summary.rs`). `retain_relevant` drops alerts whose event name is in `EXCLUDED_EVENTS` —
+   the events not worth announcing at all. `WeatherProvider::get_weather` applies it before building the
+   `WeatherReport`, so excluded alerts never reach the LLM fallback or the "and N more alerts" count. Matching is a
+   case-insensitive comparison against the *whole* event name, so "Rip Current Statement" is silenced while
+   "Rip Current Warning" is still read. Add entries to `EXCLUDED_EVENTS` to silence more.
+2. **Rules first** (`alert_summary.rs`). `is_vague_event` identifies the useless event names; `extract_phenomenon`
    mines the alert *description* for what is actually being warned about.
-2. **Bedrock only if the rules come up empty** (`ai.rs`). `summarizer_for` calls `needs_llm_fallback` and returns
+3. **Bedrock only if the rules come up empty** (`ai.rs`). `summarizer_for` calls `needs_llm_fallback` and returns
    `None` when every alert already resolved — deliberately, so a run with no vague alerts never loads AWS config or
    credentials. `alexa::forecast` takes `Option<&S>` and falls back to the raw event name when it is `None` or the
    call fails.
