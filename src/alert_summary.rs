@@ -2,6 +2,35 @@
 //! actionable phrases by inspecting the alert description.
 
 use crate::weather::WeatherAlert;
+use log::debug;
+
+/// NWS event names not worth announcing. Compared case-insensitively against
+/// the full event name, so a related-but-different event (e.g. "Rip Current
+/// Warning") is still read aloud. Add entries here to silence more alerts.
+const EXCLUDED_EVENTS: &[&str] = &["rip current statement"];
+
+/// True if `event` is on the [`EXCLUDED_EVENTS`] list.
+pub fn is_excluded_event(event: &str) -> bool {
+    let normalized = event.trim().to_lowercase();
+    EXCLUDED_EVENTS.contains(&normalized.as_str())
+}
+
+/// Drop the alerts not worth announcing, preserving the order of the rest.
+///
+/// Applied before anything else looks at the alerts, so excluded ones never
+/// reach the LLM fallback or the "and N more alerts" count.
+pub fn retain_relevant(alerts: Vec<WeatherAlert>) -> Vec<WeatherAlert> {
+    alerts
+        .into_iter()
+        .filter(|alert| {
+            let keep = !is_excluded_event(&alert.event);
+            if !keep {
+                debug!("Excluding alert: {:?}", alert.event);
+            }
+            keep
+        })
+        .collect()
+}
 
 /// NWS event names that are too generic to be useful on their own — they
 /// require the description to know what's actually being warned about.
@@ -300,5 +329,38 @@ mod test {
             "Routine outlook with no specific phenomenon",
         )];
         assert!(needs_llm_fallback(&alerts));
+    }
+
+    #[test]
+    fn excluded_events_detected() {
+        assert!(is_excluded_event("Rip Current Statement"));
+        assert!(is_excluded_event("rip current statement"));
+        assert!(is_excluded_event("  Rip Current Statement  "));
+    }
+
+    #[test]
+    fn non_excluded_events_kept() {
+        assert!(!is_excluded_event("Rip Current Warning"));
+        assert!(!is_excluded_event("Special Weather Statement"));
+        assert!(!is_excluded_event("Tornado Warning"));
+    }
+
+    #[test]
+    fn retain_relevant_drops_excluded_and_preserves_order() {
+        let alerts = vec![
+            test_alert("Tornado Warning", "a tornado"),
+            test_alert("Rip Current Statement", "dangerous surf"),
+            test_alert("Flood Watch", "lots of water"),
+        ];
+
+        let retained = retain_relevant(alerts);
+
+        let events: Vec<_> = retained.iter().map(|a| a.event.as_str()).collect();
+        assert_eq!(events, vec!["Tornado Warning", "Flood Watch"]);
+    }
+
+    #[test]
+    fn retain_relevant_on_empty_returns_empty() {
+        assert!(retain_relevant(Vec::new()).is_empty());
     }
 }
