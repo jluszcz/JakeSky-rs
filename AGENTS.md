@@ -79,8 +79,11 @@ Three constraints in `ai.rs` are load-bearing and easy to undo by accident:
 - **The alert description is untrusted input.** It is NWS-provided but arrives over the network, and the prompt
   delimits it and tells the model not to follow instructions inside it. Keep that framing if you touch the prompt.
 
-`BEDROCK_MODEL_ID` overrides the default model (`us.amazon.nova-2-lite-v1:0`), which is defined in
+`BEDROCK_MODEL_ID` overrides the default model, which is defined in
 `jluszcz_rust_utils::bedrock::DEFAULT_MODEL_ID` rather than here — bumping it there re-points this Lambda too.
+The Lambda's IAM policy in `jakesky.tf` names the model's foundation-model and inference-profile ARNs explicitly,
+so a new default (or a `BEDROCK_MODEL_ID` override) needs a matching policy change applied before the code ships;
+otherwise every call is denied and silently falls back to the event name.
 
 `BEDROCK_TIMEOUT` is applied by `BedrockClient::generate_with_timeout`; the timeout covers the Bedrock call, and
 `clean_phrase` runs after it returns.
@@ -98,4 +101,4 @@ Three constraints in `ai.rs` are load-bearing and easy to undo by accident:
 - `JAKESKY_API_KEY` - Weather provider API key
 - `JAKESKY_LATITUDE` - Location latitude
 - `JAKESKY_LONGITUDE` - Location longitude
-- `BEDROCK_MODEL_ID` - Overrides the alert-summarization model; default (`us.amazon.nova-2-lite-v1:0`) comes from rust-utils
+- `BEDROCK_MODEL_ID` - Overrides the alert-summarization model; the default comes from rust-utils

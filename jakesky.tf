@@ -57,9 +57,11 @@ data "aws_iam_policy_document" "bedrock" {
     # Cross-region inference profiles route through multiple regions, so the wildcard region is required.
     # Both the foundation model and inference profile ARNs are needed: the profile is what gets invoked,
     # and it in turn routes to the underlying foundation model.
+    # These must match jluszcz_rust_utils::bedrock::DEFAULT_MODEL_ID (or BEDROCK_MODEL_ID, if set); a mismatch
+    # surfaces only as AccessDenied, which ai.rs swallows into the event-name fallback.
     resources = [
-      "arn:aws:bedrock:*::foundation-model/amazon.nova-2-lite-v1:0",
-      "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-2-lite-v1:0",
+      "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-5-5",
+      "arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-haiku-5-5",
     ]
   }
 }
