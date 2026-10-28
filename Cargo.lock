@@ -1515,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "jluszcz_rust_utils"
 version = "0.1.0"
-source = "git+https://github.com/jluszcz/rust-utils#084e5742e1ce595a7d1920a91d6a437d9145daeb"
+source = "git+https://github.com/jluszcz/rust-utils#9fbf0901eca345561707eebcd813f73967399ef7"
 dependencies = [
  "anyhow",
  "aws-config",
